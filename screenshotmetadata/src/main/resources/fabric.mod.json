@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "fentbusgaming.screenshotmetadata",
+  "version": "1.21.2-1.0.0",
+  "name": "fentbusgaming.screenshotmetadata",
+  "description": "Embed metadata in screenshots including username, position, world, biome, shader, and timestamp.",
+  "authors": ["fentbusgaming"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "client": ["com.example.screenshotmetadata.ScreenshotMetadataMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.14.13",
+    "fabric": "*"
+  }
+}
