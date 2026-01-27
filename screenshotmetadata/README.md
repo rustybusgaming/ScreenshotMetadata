@@ -35,8 +35,8 @@ When you take a screenshot, the mod creates:
 ## 🚀 Installation
 
 1. **Requirements**: 
-   - Minecraft 1.20.4
-   - Fabric Loader 0.15.11+
+   - Minecraft 1.21.11
+   - Fabric Loader 0.18.4+
    - Fabric API
    - Java 21+
 
