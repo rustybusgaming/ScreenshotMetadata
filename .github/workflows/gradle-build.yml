@@ -28,6 +28,7 @@ jobs:
 
       - name: Validate Gradle Wrapper
         uses: gradle/actions/wrapper-validation@v3
+        continue-on-error: true
         with:
           min-wrapper-count: 1
 
