@@ -1,6 +1,7 @@
 package com.fentbuscoding.screenshotmetadata;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,11 +23,15 @@ import org.slf4j.LoggerFactory;
 public class ScreenshotMetadataMod implements ClientModInitializer {
     public static final String MOD_ID = "screenshotmetadata";
     public static final String MOD_NAME = "Screenshot Metadata";
+    public static final String MOD_VERSION = FabricLoader.getInstance()
+            .getModContainer(MOD_ID)
+            .map(container -> container.getMetadata().getVersion().getFriendlyString())
+            .orElse("unknown");
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_NAME);
     
     @Override
     public void onInitializeClient() {
-        LOGGER.info("{} v1.0.0 initialized! Screenshots will now include comprehensive metadata.", MOD_NAME);
+        LOGGER.info("{} v{} initialized! Screenshots will now include comprehensive metadata.", MOD_NAME, MOD_VERSION);
         LOGGER.info("Metadata includes: Player info, coordinates, world data, biome, and timestamp");
         LOGGER.info("Stored as both PNG text chunks and XMP sidecar files for maximum compatibility");
     }

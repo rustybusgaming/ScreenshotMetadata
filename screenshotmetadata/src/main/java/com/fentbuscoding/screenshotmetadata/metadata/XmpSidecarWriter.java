@@ -135,7 +135,9 @@ public class XmpSidecarWriter {
      */
     private static void addXmpBasicMetadata(StringBuilder xmp, Map<String, String> metadata) {
         // Software
-        xmp.append("   <xmp:CreatorTool>Screenshot Metadata Mod v1.0.0</xmp:CreatorTool>\n");
+          xmp.append("   <xmp:CreatorTool>Screenshot Metadata Mod v")
+              .append(escapeXml(ScreenshotMetadataMod.MOD_VERSION))
+              .append("</xmp:CreatorTool>\n");
         
         // Creation date
         if (metadata.containsKey("Timestamp")) {

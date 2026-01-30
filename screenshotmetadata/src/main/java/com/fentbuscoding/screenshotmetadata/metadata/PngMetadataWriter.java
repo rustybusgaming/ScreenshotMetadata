@@ -141,7 +141,7 @@ public class PngMetadataWriter {
         addTextEntry(textNode, "Comment", description.toString());
         addTextEntry(textNode, "Description", description.toString());
         addTextEntry(textNode, "Title", "Minecraft - " + metadata.getOrDefault("Username", "Unknown Player"));
-        addTextEntry(textNode, "Software", "Screenshot Metadata Mod v1.0.0");
+        addTextEntry(textNode, "Software", "Screenshot Metadata Mod v" + ScreenshotMetadataMod.MOD_VERSION);
         addTextEntry(textNode, "Author", metadata.getOrDefault("Username", "Unknown Player"));
     }
     

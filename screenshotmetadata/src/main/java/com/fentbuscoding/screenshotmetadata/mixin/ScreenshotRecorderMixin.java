@@ -1,6 +1,7 @@
 package com.fentbuscoding.screenshotmetadata.mixin;
 
 import com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod;
+import com.fentbuscoding.screenshotmetadata.metadata.JsonSidecarWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.PngMetadataWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.XmpSidecarWriter;
 import net.minecraft.client.MinecraftClient;
@@ -15,6 +16,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.io.File;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -120,31 +124,65 @@ public class ScreenshotRecorderMixin {
             if (client.getSession() != null && client.getSession().getUsername() != null) {
                 metadata.put("Username", client.getSession().getUsername());
             }
+            if (client.player != null && client.player.getUuid() != null) {
+                metadata.put("PlayerUuid", client.player.getUuid().toString());
+            }
             
             // Player coordinates
             if (client.player != null) {
                 metadata.put("X", String.valueOf((int) client.player.getX()));
                 metadata.put("Y", String.valueOf((int) client.player.getY()));
                 metadata.put("Z", String.valueOf((int) client.player.getZ()));
+                metadata.put("Yaw", String.format("%.1f", client.player.getYaw()));
+                metadata.put("Pitch", String.format("%.1f", client.player.getPitch()));
+                metadata.put("Facing", getFacingDirection(client.player.getYaw()));
             }
             
             // World and biome information
             if (client.world != null && client.player != null) {
                 String worldKey = client.world.getRegistryKey().getValue().toString();
                 metadata.put("World", worldKey);
+                metadata.put("DimensionId", worldKey);
+                metadata.put("Dimension", formatDimensionName(worldKey));
 
                 String biomeName = getBiomeName(client);
                 if (biomeName != null && !biomeName.isEmpty()) {
                     metadata.put("Biome", biomeName);
                 }
+                String biomeId = getBiomeId(client);
+                if (biomeId != null && !biomeId.isEmpty()) {
+                    metadata.put("BiomeId", biomeId);
+                }
+
+                long timeOfDay = client.world.getTimeOfDay() % 24000L;
+                metadata.put("TimeOfDayTicks", String.valueOf(timeOfDay));
+                metadata.put("TimeOfDay", formatTimeOfDay(timeOfDay));
+            }
+
+            // Server / world info
+            if (client.isInSingleplayer()) {
+                if (client.getServer() != null && client.getServer().getSaveProperties() != null) {
+                    metadata.put("WorldName", client.getServer().getSaveProperties().getLevelName());
+                }
+                if (client.getServer() != null && client.getServer().getOverworld() != null) {
+                    metadata.put("WorldSeed", String.valueOf(client.getServer().getOverworld().getSeed()));
+                }
+                metadata.put("ServerType", "Singleplayer");
+            } else if (client.getCurrentServerEntry() != null) {
+                metadata.put("ServerType", "Multiplayer");
+                metadata.put("ServerName", client.getCurrentServerEntry().name);
+                metadata.put("ServerAddress", client.getCurrentServerEntry().address);
             }
             
             // Timestamp
             metadata.put("Timestamp", Instant.now().toString());
+                metadata.put("LocalTime", OffsetDateTime.now(ZoneId.systemDefault())
+                    .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
             
             // Game version info
             metadata.put("MinecraftVersion", client.getGameVersion());
-            metadata.put("ModVersion", "1.0.0");
+            metadata.put("ModVersion", ScreenshotMetadataMod.MOD_VERSION);
+            metadata.put("ModId", ScreenshotMetadataMod.MOD_ID);
             
         } catch (Exception e) {
             ScreenshotMetadataMod.LOGGER.error("Error collecting metadata", e);
@@ -164,6 +202,21 @@ public class ScreenshotRecorderMixin {
                     .orElse("Unknown");
         } catch (Exception e) {
             ScreenshotMetadataMod.LOGGER.debug("Could not extract biome name", e);
+            return "Unknown";
+        }
+    }
+
+    /**
+     * Extracts the biome registry id
+     */
+    private static String getBiomeId(MinecraftClient client) {
+        try {
+            RegistryEntry<Biome> biomeEntry = client.world.getBiome(client.player.getBlockPos());
+            return biomeEntry.getKey()
+                    .map(key -> key.getValue().toString())
+                    .orElse("Unknown");
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.debug("Could not extract biome id", e);
             return "Unknown";
         }
     }
@@ -189,6 +242,53 @@ public class ScreenshotRecorderMixin {
         
         return titleCase.toString().trim();
     }
+
+    /**
+     * Formats dimension id to a friendly name
+     */
+    private static String formatDimensionName(String dimensionId) {
+        if (dimensionId == null || dimensionId.isEmpty()) {
+            return "Unknown";
+        }
+        switch (dimensionId) {
+            case "minecraft:overworld":
+                return "Overworld";
+            case "minecraft:the_nether":
+                return "Nether";
+            case "minecraft:the_end":
+                return "The End";
+            default:
+                String path = dimensionId.contains(":") ? dimensionId.split(":", 2)[1] : dimensionId;
+                return formatBiomeName(path);
+        }
+    }
+
+    /**
+     * Converts in-game time (0-23999) to 24h time
+     */
+    private static String formatTimeOfDay(long timeOfDay) {
+        int hours = (int) ((timeOfDay / 1000 + 6) % 24);
+        int minutes = (int) ((timeOfDay % 1000) * 60 / 1000);
+        return String.format("%02d:%02d", hours, minutes);
+    }
+
+    /**
+     * Converts yaw to a readable facing direction
+     */
+    private static String getFacingDirection(float yaw) {
+        int index = Math.floorMod(Math.round(yaw / 45f), 8);
+        return switch (index) {
+            case 0 -> "South";
+            case 1 -> "Southwest";
+            case 2 -> "West";
+            case 3 -> "Northwest";
+            case 4 -> "North";
+            case 5 -> "Northeast";
+            case 6 -> "East";
+            case 7 -> "Southeast";
+            default -> "Unknown";
+        };
+    }
     
     /**
      * Adds metadata to the screenshot using both PNG and XMP methods
@@ -206,6 +306,13 @@ public class ScreenshotRecorderMixin {
             XmpSidecarWriter.writeSidecarFile(screenshotFile, metadata);
         } catch (Exception e) {
             ScreenshotMetadataMod.LOGGER.error("Failed to create XMP sidecar for {}", screenshotFile.getName(), e);
+        }
+
+        // Create JSON sidecar file for easy parsing
+        try {
+            JsonSidecarWriter.writeSidecarFile(screenshotFile, metadata);
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.error("Failed to create JSON sidecar for {}", screenshotFile.getName(), e);
         }
     }
 }
