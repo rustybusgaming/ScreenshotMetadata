@@ -99,14 +99,12 @@ public class ModMenuIntegration implements ModMenuApi {
 
         @Override
         public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-            this.renderBackground(context, mouseX, mouseY, delta);
+            super.render(context, mouseX, mouseY, delta);
             
             // Header
             context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 15, 0xFFFFFF);
             context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("Metadata Output Formats").formatted(Formatting.GOLD), this.width / 2, 50, 0xFFD700);
             context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("Metadata Content").formatted(Formatting.GOLD), this.width / 2, 145, 0xFFD700);
-            
-            super.render(context, mouseX, mouseY, delta);
         }
 
         @Override

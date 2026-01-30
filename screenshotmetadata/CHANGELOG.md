@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.3.4] - 2026-01-30
+
+### Changed
+- Upgraded ModMenu config screen with clearer layout, section headers, and color-coded toggle labels
+- Improved toggle text to show explicit ON/OFF state for faster readability
+
 ## [1.0.3.1] - 2026-01-30
 
 ### Fixed
