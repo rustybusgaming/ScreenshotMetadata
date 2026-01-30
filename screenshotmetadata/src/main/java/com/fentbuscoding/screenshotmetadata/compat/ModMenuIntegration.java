@@ -66,7 +66,7 @@ public class ModMenuIntegration implements ModMenuApi {
 
         @Override
         public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-            this.renderBackground(context);
+            this.renderBackground(context, mouseX, mouseY, delta);
             context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 20, 0xFFFFFF);
             context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("metadata outputs").formatted(Formatting.GRAY), this.width / 2, this.height / 2 - 60, 0xAAAAAA);
             context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("turn off what you don’t want to save").formatted(Formatting.DARK_GRAY), this.width / 2, this.height / 2 - 48, 0x888888);
