@@ -12,13 +12,17 @@
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
-    "client": ["com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod"]
+    "client": ["com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod"],
+    "modmenu": ["com.fentbuscoding.screenshotmetadata.compat.ModMenuIntegration"]
   },
   "depends": {
     "fabricloader": ">=0.16.0",
     "fabric-api": "*",
     "minecraft": "~1.21.11",
     "java": ">=21"
+  },
+  "suggests": {
+    "modmenu": "*"
   },
   "mixins": [
     "screenshotmetadata.mixins.json"

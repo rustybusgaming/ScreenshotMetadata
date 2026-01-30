@@ -1,6 +1,7 @@
 package com.fentbuscoding.screenshotmetadata.mixin;
 
 import com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod;
+import com.fentbuscoding.screenshotmetadata.config.ScreenshotMetadataConfig;
 import com.fentbuscoding.screenshotmetadata.metadata.JsonSidecarWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.PngMetadataWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.XmpSidecarWriter;
@@ -164,7 +165,8 @@ public class ScreenshotRecorderMixin {
                 if (client.getServer() != null && client.getServer().getSaveProperties() != null) {
                     metadata.put("WorldName", client.getServer().getSaveProperties().getLevelName());
                 }
-                if (client.getServer() != null && client.getServer().getOverworld() != null) {
+                if (ScreenshotMetadataConfig.get().includeWorldSeed
+                    && client.getServer() != null && client.getServer().getOverworld() != null) {
                     metadata.put("WorldSeed", String.valueOf(client.getServer().getOverworld().getSeed()));
                 }
                 metadata.put("ServerType", "Singleplayer");
@@ -294,25 +296,32 @@ public class ScreenshotRecorderMixin {
      * Adds metadata to the screenshot using both PNG and XMP methods
      */
     private static void addMetadataToScreenshot(File screenshotFile, Map<String, String> metadata) {
+        ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
         // Add PNG embedded metadata
-        try {
-            PngMetadataWriter.writeMetadata(screenshotFile, metadata);
-        } catch (Exception e) {
-            ScreenshotMetadataMod.LOGGER.error("Failed to write PNG metadata to {}", screenshotFile.getName(), e);
+        if (config.writePngMetadata) {
+            try {
+                PngMetadataWriter.writeMetadata(screenshotFile, metadata);
+            } catch (Exception e) {
+                ScreenshotMetadataMod.LOGGER.error("Failed to write PNG metadata to {}", screenshotFile.getName(), e);
+            }
         }
         
         // Create XMP sidecar file
-        try {
-            XmpSidecarWriter.writeSidecarFile(screenshotFile, metadata);
-        } catch (Exception e) {
-            ScreenshotMetadataMod.LOGGER.error("Failed to create XMP sidecar for {}", screenshotFile.getName(), e);
+        if (config.writeXmpSidecar) {
+            try {
+                XmpSidecarWriter.writeSidecarFile(screenshotFile, metadata);
+            } catch (Exception e) {
+                ScreenshotMetadataMod.LOGGER.error("Failed to create XMP sidecar for {}", screenshotFile.getName(), e);
+            }
         }
 
         // Create JSON sidecar file for easy parsing
-        try {
-            JsonSidecarWriter.writeSidecarFile(screenshotFile, metadata);
-        } catch (Exception e) {
-            ScreenshotMetadataMod.LOGGER.error("Failed to create JSON sidecar for {}", screenshotFile.getName(), e);
+        if (config.writeJsonSidecar) {
+            try {
+                JsonSidecarWriter.writeSidecarFile(screenshotFile, metadata);
+            } catch (Exception e) {
+                ScreenshotMetadataMod.LOGGER.error("Failed to create JSON sidecar for {}", screenshotFile.getName(), e);
+            }
         }
     }
 }
