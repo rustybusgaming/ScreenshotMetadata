@@ -73,7 +73,6 @@ jar {
 publishMods {
 	displayName = "Screenshot Metadata v${project.version}"
 	file = remapJar.archiveFile
-	additionalFiles.from(remapSourcesJar.archiveFile)
 	changelog = rootProject.file("CHANGELOG.md").exists() ? rootProject.file("CHANGELOG.md").text : "No changelog provided"
 	type = STABLE
 	modLoaders.add("fabric")
