@@ -35,10 +35,10 @@ jobs:
           ${{ runner.os }}-gradle-
           
     - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+      run: chmod +x screenshotmetadata/gradlew
       
     - name: Build with Gradle
-      run: ./gradlew clean build
+      run: cd screenshotmetadata && ./gradlew clean build --no-configuration-cache
       
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -46,8 +46,8 @@ jobs:
       with:
         name: build-artifacts-java-${{ matrix.java-version }}
         path: |
-          build/libs/*.jar
-          build/reports/
+          screenshotmetadata/build/libs/*.jar
+          screenshotmetadata/build/reports/
           
     - name: Check for build failures
       if: failure()
