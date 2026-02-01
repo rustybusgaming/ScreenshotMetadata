@@ -196,7 +196,7 @@ public class ModMenuIntegration implements ModMenuApi {
 
         @Override
         public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-            this.renderBackground(context, mouseX, mouseY, delta);
+            super.render(context, mouseX, mouseY, delta);
             
             // Modern gradient header background
             context.fill(0, 0, this.width, 65, 0xFF1a1a2e);
