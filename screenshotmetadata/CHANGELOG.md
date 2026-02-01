@@ -1,9 +1,25 @@
 # Changelog
 
+All notable changes to the Screenshot Metadata Mod are documented here. This changelog focuses on functional changes to the mod itself.
+
+## [1.0.4]
+
+### Added
+- Performance metrics: Render distance and simulation distance tracking
+- Player status metadata: Game difficulty level tracking
+- Equipment tracking: Full armor inventory and equipped items
+- Potion effects: Active status effects with amplifiers and durations
+- Metadata filtering: Configuration options to include/exclude specific metadata categories
+
+### Improved
+- File detection with exponential backoff retry strategy (100ms to 1000ms increments)
+- Fallback file detection: Checks temp directory and downloads folder if primary location fails
+- Configuration system with granular metadata filtering options
+
 ## [1.0.3.10] - 2026-01-30
 
 ### Fixed
-- Fixed Gradle build error in processResources task by using project.version instead of inputs.properties.version for Gradle 9.3.0 compatibility
+- Fixed Gradle build error in processResources task by using project.version for Gradle 9.3.0 compatibility
 
 ## [1.0.3.9] - 2026-01-30
 
@@ -31,35 +47,25 @@
 ## [1.0.3.5] - 2026-01-30
 
 ### Fixed
-- Kept the Mod Menu "Done" button visible in smaller windowed resolutions
+- Kept the Mod Menu config screen visible in smaller windowed resolutions
 
 ## [1.0.3.4] - 2026-01-30
 
 ### Changed
-- Upgraded ModMenu config screen with clearer layout, section headers, and color-coded toggle labels
-- Improved toggle text to show explicit ON/OFF state for faster readability
+- Improved ModMenu config screen layout and toggle label readability
 
 ## [1.0.3.1] - 2026-01-30
 
 ### Fixed
-- **Critical Bug**: Mod was writing metadata to old screenshot files instead of newly created ones
+- Critical bug where metadata was written to wrong screenshot files when taking multiple screenshots in quick succession
   - Implemented pre-save state capture to identify existing files before screenshot save
   - Added filtering logic to only process newly created screenshots
-  - Fixes issue where metadata appeared on wrong screenshots when taking multiple in quick succession
-- **ModMenu Crash**: Fixed IllegalStateException "Can only blur once per frame" in ModMenu integration
-  - Reordered render() calls to prevent double background blur
-  - Ensures compatibility with ModMenu screen rendering
+- Fixed IllegalStateException in ModMenu integration with screen rendering
 
 ### Changed
-- Improved file detection algorithm to use pre-save file state
-- Enhanced screenshot file selection to lexicographically compare filenames (which contain timestamps)
+- Improved file detection algorithm with pre-save file state tracking
+- Enhanced screenshot file selection to lexicographically compare filenames
 - Updated to Minecraft 1.21.11 with Fabric Loader 0.18.4
-
-### Technical Improvements
-- Added LAST_SCREENSHOT_FILE ThreadLocal for pre-save state tracking
-- Implemented dual-injection approach: capture state before save, process after save
-- File filtering now compares both filename and lastModified timestamp
-- Maintains existing retry and file stability checking logic
 
 ## [1.0.0] - 2025-09-06
 
@@ -68,38 +74,17 @@
 - Comprehensive metadata collection for Minecraft screenshots
 - Dual metadata storage: PNG text chunks and XMP sidecar files
 - File Explorer integration for Windows users
-- Player information metadata (username, coordinates)
-- World and environment data (dimension, biome)
+- Player information metadata (username, coordinates, UUID)
+- World and environment data (dimension, biome, coordinates)
 - Timestamp and version information
 - Async processing to prevent game performance impact
-- Professional code structure with proper error handling
-- Support for Minecraft 1.21.8 with Fabric
+- Support for Minecraft 1.21.8 with Fabric Loader 0.16.0+
 
 ### Features
-- **Automatic Metadata Addition**: No user action required, works automatically with F2 screenshots
-- **File Explorer Visibility**: Metadata appears in Windows Properties → Details
-- **Comprehensive Data**: Player name, coordinates (X,Y,Z), world/dimension, biome, timestamp
-- **Dual Format Support**: Both embedded PNG metadata and XMP sidecar files
-- **Clean Biome Names**: User-friendly biome names instead of technical references
-- **Performance Optimized**: Async processing with robust error handling
-- **Standards Compliant**: Proper XMP format with Dublin Core metadata
-
-### Technical Details
-- **Package**: com.fentbuscoding.screenshotmetadata
-- **Minecraft Version**: 1.21.8
-- **Fabric Loader**: 0.16.0+
-- **Java Version**: 21+
-- **Dependencies**: Fabric API
-
-### Requirements
-- Minecraft 1.21.8
-- Fabric Loader 0.16.0 or higher
-- Fabric API
-- Java 21 or higher
-
-### Installation
-1. Download the mod JAR file
-2. Place in your Minecraft mods folder
-3. Launch Minecraft with Fabric
-4. Take screenshots as normal (F2 key)
-5. Check File Explorer properties to see metadata!
+- Automatic metadata addition with no user action required
+- File Explorer visibility on Windows (Properties - Details tab)
+- Comprehensive data collection: player name, coordinates (X,Y,Z), world, dimension, biome, timestamp
+- Dual format support: embedded PNG metadata and XMP sidecar files
+- Clean biome names with user-friendly formatting
+- Performance optimized async processing with robust error handling
+- Standards compliant XMP format with Dublin Core metadata
