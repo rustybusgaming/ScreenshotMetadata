@@ -66,20 +66,10 @@ public class PngMetadataWriter {
             IIOMetadata meta = writer.getDefaultImageMetadata(new ImageTypeSpecifier(image), writeParam);
 
             String nativeFormat = meta.getNativeMetadataFormatName();
-            IIOMetadataNode root = (IIOMetadataNode) meta.getAsTree(nativeFormat);
-            IIOMetadataNode textNode = new IIOMetadataNode("tEXt");
-
-            // Embed user-provided entries
-            for (Map.Entry<String, String> entry : metadata.entrySet()) {
-                if (entry.getKey() != null && entry.getValue() != null) {
-                    addTextEntry(textNode, entry.getKey(), entry.getValue());
-                }
+            boolean merged = mergeTextMetadata(meta, nativeFormat, metadata, true);
+            if (!merged) {
+                mergeTextMetadata(meta, nativeFormat, metadata, false);
             }
-
-            addStandardTextEntries(textNode, metadata);
-
-            root.appendChild(textNode);
-            meta.mergeTree(nativeFormat, root);
 
             try (ImageOutputStream output = ImageIO.createImageOutputStream(tempPath.toFile())) {
                 writer.setOutput(output);
@@ -116,7 +106,7 @@ public class PngMetadataWriter {
     /**
      * Adds standard text entries that various tools might recognize
      */
-    private static void addStandardTextEntries(IIOMetadataNode textNode, Map<String, String> metadata) {
+    private static void addStandardTextEntries(IIOMetadataNode textNode, Map<String, String> metadata, boolean useITXt) {
         // Build comprehensive description
         StringBuilder description = new StringBuilder();
         description.append("Minecraft Screenshot");
@@ -138,22 +128,55 @@ public class PngMetadataWriter {
         }
         
         // Add standard entries
-        addTextEntry(textNode, "Comment", description.toString());
-        addTextEntry(textNode, "Description", description.toString());
-        addTextEntry(textNode, "Title", "Minecraft - " + metadata.getOrDefault("Username", "Unknown Player"));
-        addTextEntry(textNode, "Software", "Screenshot Metadata Mod v" + ScreenshotMetadataMod.MOD_VERSION);
-        addTextEntry(textNode, "Author", metadata.getOrDefault("Username", "Unknown Player"));
+        addTextEntry(textNode, "Comment", description.toString(), useITXt);
+        addTextEntry(textNode, "Description", description.toString(), useITXt);
+        addTextEntry(textNode, "Title", "Minecraft - " + metadata.getOrDefault("Username", "Unknown Player"), useITXt);
+        addTextEntry(textNode, "Software", "Screenshot Metadata Mod v" + ScreenshotMetadataMod.MOD_VERSION, useITXt);
+        addTextEntry(textNode, "Author", metadata.getOrDefault("Username", "Unknown Player"), useITXt);
     }
     
     /**
      * Helper method to add a text entry
      */
-    private static void addTextEntry(IIOMetadataNode textNode, String keyword, String value) {
+    private static void addTextEntry(IIOMetadataNode textNode, String keyword, String value, boolean useITXt) {
         if (keyword != null && value != null && !value.trim().isEmpty()) {
-            IIOMetadataNode textEntry = new IIOMetadataNode("tEXtEntry");
+            IIOMetadataNode textEntry = new IIOMetadataNode(useITXt ? "iTXtEntry" : "tEXtEntry");
             textEntry.setAttribute("keyword", keyword);
             textEntry.setAttribute("value", value.trim());
+            if (useITXt) {
+                textEntry.setAttribute("languageTag", "");
+                textEntry.setAttribute("translatedKeyword", "");
+                textEntry.setAttribute("compressionFlag", "FALSE");
+                textEntry.setAttribute("compressionMethod", "0");
+            }
             textNode.appendChild(textEntry);
+        }
+    }
+
+    private static boolean mergeTextMetadata(IIOMetadata meta,
+                                             String nativeFormat,
+                                             Map<String, String> metadata,
+                                             boolean useITXt) {
+        try {
+            IIOMetadataNode root = (IIOMetadataNode) meta.getAsTree(nativeFormat);
+            IIOMetadataNode textNode = new IIOMetadataNode(useITXt ? "iTXt" : "tEXt");
+
+            // Embed user-provided entries
+            for (Map.Entry<String, String> entry : metadata.entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null) {
+                    addTextEntry(textNode, entry.getKey(), entry.getValue(), useITXt);
+                }
+            }
+
+            addStandardTextEntries(textNode, metadata, useITXt);
+
+            root.appendChild(textNode);
+            meta.mergeTree(nativeFormat, root);
+            return true;
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.debug("PNG metadata merge failed for {} chunks: {}",
+                useITXt ? "iTXt" : "tEXt", e.getMessage());
+            return false;
         }
     }
 }

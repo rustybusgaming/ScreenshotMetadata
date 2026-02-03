@@ -10,6 +10,9 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class ModMenuIntegration implements ModMenuApi {
     @Override
     public ConfigScreenFactory<?> getModConfigScreenFactory() {
@@ -22,8 +25,15 @@ public class ModMenuIntegration implements ModMenuApi {
         private static final int BUTTON_HEIGHT = 24;
         private static final int SPACING = 8;
         private static final int SECTION_PADDING = 20;
-        
+        private static final int CONTENT_TOP = 70;
+        private static final int CONTENT_BOTTOM_PADDING = 60;
+        private static final int SECTION_TITLE_HEIGHT = 12;
+        private static final int SECTION_LINE_WIDTH = 140;
+        private static final int SCROLL_STEP = 12;
+
+        private final List<Section> sections = new ArrayList<>();
         private int scrollOffset = 0;
+        private int maxScroll = 0;
 
         protected ConfigScreen(Screen parent) {
             super(Text.literal("Screenshot Metadata Config").formatted(Formatting.BOLD));
@@ -33,15 +43,15 @@ public class ModMenuIntegration implements ModMenuApi {
         @Override
         protected void init() {
             this.clearChildren();
+            this.sections.clear();
             ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
             int centerX = this.width / 2;
-            int baseY = 70;
-            int y = baseY - scrollOffset;
+            int y = CONTENT_TOP - scrollOffset;
 
             // ===== OUTPUT FORMATS SECTION =====
             y = drawSection(centerX, y, "Output Formats", 0x88FF88);
             
-            y += this.addToggleButton(centerX, y, "PNG Metadata", 
+            y += this.addToggleButton(centerX, y, "PNG Metadata",
                 "Embed metadata in PNG chunks", config.writePngMetadata, 
                 button -> {
                     config.writePngMetadata = !config.writePngMetadata;
@@ -87,6 +97,13 @@ public class ModMenuIntegration implements ModMenuApi {
                     updateButtonText(button, config.includeCoordinates);
                 });
 
+            y += this.addToggleButton(centerX, y, "Weather Info",
+                "Record rain, thunder, and weather state", config.includeWeatherInfo,
+                button -> {
+                    config.includeWeatherInfo = !config.includeWeatherInfo;
+                    updateButtonText(button, config.includeWeatherInfo);
+                });
+
             // ===== PLAYER STATUS SECTION =====
             y += SECTION_PADDING;
             y = drawSection(centerX, y, "Player Status", 0xFF88CC);
@@ -127,6 +144,17 @@ public class ModMenuIntegration implements ModMenuApi {
                     updateButtonText(button, config.includePerformanceMetrics);
                 });
 
+            // ===== SIDECAR EXTRAS SECTION =====
+            y += SECTION_PADDING;
+            y = drawSection(centerX, y, "Sidecar Extras", 0x88FFCC);
+
+            y += this.addToggleButton(centerX, y, "Modpack Context",
+                "Add resource packs, shaders, and mod list to JSON only", config.includeModpackContext,
+                button -> {
+                    config.includeModpackContext = !config.includeModpackContext;
+                    updateButtonText(button, config.includeModpackContext);
+                });
+
             // ===== SAVE BUTTON =====
             y += SECTION_PADDING + 20;
             this.addDrawableChild(ButtonWidget.builder(
@@ -141,11 +169,19 @@ public class ModMenuIntegration implements ModMenuApi {
                 button -> resetDefaults())
                 .dimensions(centerX - BUTTON_WIDTH / 2, this.height - 30, BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());
+
+            int contentHeight = Math.max(0, (y + scrollOffset) - CONTENT_TOP);
+            int viewHeight = Math.max(0, this.height - CONTENT_TOP - CONTENT_BOTTOM_PADDING);
+            maxScroll = Math.max(0, contentHeight - viewHeight);
+            if (scrollOffset > maxScroll) {
+                scrollOffset = maxScroll;
+                this.init();
+            }
         }
 
         private int drawSection(int centerX, int y, String title, int color) {
-            // Section title spacing
-            return y + 8;
+            sections.add(new Section(y, title, color));
+            return y + SECTION_TITLE_HEIGHT + 6;
         }
 
         private int addToggleButton(int centerX, int y, String icon, String description, boolean enabled, java.util.function.Consumer<ButtonWidget> onPress) {
@@ -184,6 +220,7 @@ public class ModMenuIntegration implements ModMenuApi {
             config.includeCoordinates = true;
             config.includeBiomeInfo = true;
             config.includeWeatherInfo = true;
+            config.includeModpackContext = true;
             ScreenshotMetadataConfig.save();
             this.init();
         }
@@ -216,7 +253,8 @@ public class ModMenuIntegration implements ModMenuApi {
                 this.width / 2, 45, 0x666666);
 
             // Draw content with scissor for scrolling
-            context.enableScissor(0, 70, this.width, this.height - 70);
+            context.enableScissor(0, CONTENT_TOP, this.width, this.height - CONTENT_TOP);
+            renderSections(context);
             super.render(context, mouseX, mouseY, delta);
             context.disableScissor();
 
@@ -231,8 +269,40 @@ public class ModMenuIntegration implements ModMenuApi {
 
         @Override
         public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-            scrollOffset = Math.max(0, Math.min(scrollOffset - (int)(verticalAmount * 10), 200));
+            int nextScroll = Math.max(0, Math.min(scrollOffset - (int)(verticalAmount * SCROLL_STEP), maxScroll));
+            if (nextScroll != scrollOffset) {
+                scrollOffset = nextScroll;
+                this.init();
+            }
             return true;
+        }
+
+        private void renderSections(DrawContext context) {
+            int centerX = this.width / 2;
+            for (Section section : sections) {
+                int y = section.y;
+                if (y < CONTENT_TOP - 20 || y > this.height) {
+                    continue;
+                }
+                int textColor = 0xFF000000 | section.color;
+                context.drawCenteredTextWithShadow(this.textRenderer,
+                    Text.literal(section.title).formatted(Formatting.BOLD),
+                    centerX, y, textColor);
+                int lineY = y + SECTION_TITLE_HEIGHT;
+                context.fill(centerX - SECTION_LINE_WIDTH, lineY, centerX + SECTION_LINE_WIDTH, lineY + 1, 0x33FFFFFF);
+            }
+        }
+    }
+
+    private static final class Section {
+        private final int y;
+        private final String title;
+        private final int color;
+
+        private Section(int y, String title, int color) {
+            this.y = y;
+            this.title = title;
+            this.color = color;
         }
     }
 }

@@ -32,6 +32,7 @@ public class ScreenshotMetadataConfig {
     public boolean includeCoordinates = true;
     public boolean includeBiomeInfo = true;
     public boolean includeWeatherInfo = true;
+    public boolean includeModpackContext = true;
 
     public static ScreenshotMetadataConfig get() {
         if (instance == null || !loaded) {

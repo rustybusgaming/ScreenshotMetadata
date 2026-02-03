@@ -2,6 +2,16 @@
 
 All notable changes to the Screenshot Metadata Mod are documented here. This changelog focuses on functional changes to the mod itself.
 
+## [1.0.4.2] - 2026-02-03
+
+### Added
+- Weather metadata (rain/thunder state + gradients) with ModMenu toggle
+- Optional JSON-only modpack context: enabled resource packs, shader pack name, and truncated mod list
+
+### Improved
+- ModMenu config screen: visible section headers and dynamic scroll bounds
+- PNG metadata now prefers iTXt chunks with tEXt fallback for broader Unicode support
+
 ## [1.0.4.1]
 
 ### Fixed

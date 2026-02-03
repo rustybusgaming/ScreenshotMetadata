@@ -177,6 +177,10 @@ public class XmpSidecarWriter {
         if (metadata.containsKey("Username")) {
             xmp.append("   <minecraft:player>").append(escapeXml(metadata.get("Username"))).append("</minecraft:player>\n");
         }
+
+        if (metadata.containsKey("Weather")) {
+            xmp.append("   <minecraft:weather>").append(escapeXml(metadata.get("Weather"))).append("</minecraft:weather>\n");
+        }
     }
     
     /**

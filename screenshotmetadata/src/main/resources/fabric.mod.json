@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "screenshotmetadata",
-  "version": "1.0.0",
+  "version": "1.0.4.2",
   "name": "Screenshot Metadata",
   "description": "Automatically adds comprehensive metadata to Minecraft screenshots including player info, coordinates, world data, and biome information. Metadata is stored both as PNG text chunks and XMP sidecar files for maximum compatibility.",
   "authors": ["fentbuscoding"],

@@ -19,6 +19,17 @@ public class JsonSidecarWriter {
      * @param metadata The metadata to include in the JSON file
      */
     public static void writeSidecarFile(File imageFile, Map<String, String> metadata) {
+        writeSidecarFile(imageFile, metadata, null);
+    }
+
+    /**
+     * Creates a JSON sidecar file with optional extended context fields.
+     *
+     * @param imageFile The image file to create a sidecar for
+     * @param metadata The metadata to include in the JSON file
+     * @param context Optional extra context (resource packs, shaders, mod list)
+     */
+    public static void writeSidecarFile(File imageFile, Map<String, String> metadata, JsonSidecarContext context) {
         if (imageFile == null || !imageFile.exists()) {
             ScreenshotMetadataMod.LOGGER.warn("Cannot create JSON sidecar for non-existent file: {}",
                 imageFile != null ? imageFile.getName() : "null");
@@ -27,7 +38,7 @@ public class JsonSidecarWriter {
 
         try {
             File jsonFile = getJsonFile(imageFile);
-            String jsonContent = generateJsonContent(imageFile, metadata);
+            String jsonContent = generateJsonContent(imageFile, metadata, context);
 
             try (FileWriter writer = new FileWriter(jsonFile)) {
                 writer.write(jsonContent);
@@ -50,7 +61,7 @@ public class JsonSidecarWriter {
         return new File(imageFile.getParent(), baseName + ".json");
     }
 
-    private static String generateJsonContent(File imageFile, Map<String, String> metadata) {
+    private static String generateJsonContent(File imageFile, Map<String, String> metadata, JsonSidecarContext context) {
         StringBuilder json = new StringBuilder();
         json.append("{\n");
         json.append("  \"formatVersion\": \"1\",\n");
@@ -78,9 +89,97 @@ public class JsonSidecarWriter {
             }
             json.append("\n  ");
         }
-        json.append("}\n");
+        json.append("}");
+
+        if (context != null) {
+            appendModpackContext(json, context);
+        }
+
+        json.append("\n");
         json.append("}\n");
         return json.toString();
+    }
+
+    private static void appendModpackContext(StringBuilder json, JsonSidecarContext context) {
+        json.append(",\n");
+        json.append("  \"modpack\": {\n");
+
+        int fieldCount = 0;
+        if (context.getShaderPack() != null) {
+            appendStringField(json, "shaderPack", context.getShaderPack(), fieldCount > 0);
+            fieldCount++;
+        }
+
+        if (context.getModCount() >= 0) {
+            appendNumberField(json, "modCount", context.getModCount(), fieldCount > 0);
+            fieldCount++;
+        }
+
+        if (!context.getResourcePacks().isEmpty()) {
+            appendStringArrayField(json, "resourcePacks", context.getResourcePacks(), fieldCount > 0);
+            fieldCount++;
+        }
+
+        if (!context.getMods().isEmpty()) {
+            appendStringArrayField(json, "mods", context.getMods(), fieldCount > 0);
+            fieldCount++;
+        }
+
+        appendBooleanField(json, "modListTruncated", context.isModListTruncated(), fieldCount > 0);
+        json.append("\n  }");
+    }
+
+    private static void appendStringField(StringBuilder json, String key, String value, boolean withComma) {
+        if (withComma) {
+            json.append(",\n");
+        }
+        json.append("    \"")
+            .append(escapeJson(key))
+            .append("\": \"")
+            .append(escapeJson(value))
+            .append("\"");
+    }
+
+    private static void appendNumberField(StringBuilder json, String key, int value, boolean withComma) {
+        if (withComma) {
+            json.append(",\n");
+        }
+        json.append("    \"")
+            .append(escapeJson(key))
+            .append("\": ")
+            .append(value);
+    }
+
+    private static void appendBooleanField(StringBuilder json, String key, boolean value, boolean withComma) {
+        if (withComma) {
+            json.append(",\n");
+        }
+        json.append("    \"")
+            .append(escapeJson(key))
+            .append("\": ")
+            .append(value ? "true" : "false");
+    }
+
+    private static void appendStringArrayField(StringBuilder json, String key, Iterable<String> values, boolean withComma) {
+        if (withComma) {
+            json.append(",\n");
+        }
+        json.append("    \"")
+            .append(escapeJson(key))
+            .append("\": [");
+
+        int index = 0;
+        for (String value : values) {
+            if (value == null) {
+                continue;
+            }
+            if (index > 0) {
+                json.append(", ");
+            }
+            json.append("\"").append(escapeJson(value)).append("\"");
+            index++;
+        }
+        json.append("]");
     }
 
     private static String escapeJson(String text) {
