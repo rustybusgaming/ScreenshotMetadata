@@ -9,6 +9,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.Util;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,15 +26,23 @@ public class ModMenuIntegration implements ModMenuApi {
         private static final int BUTTON_HEIGHT = 24;
         private static final int SPACING = 8;
         private static final int SECTION_PADDING = 20;
-        private static final int CONTENT_TOP = 70;
-        private static final int CONTENT_BOTTOM_PADDING = 60;
+        private static final int HEADER_MIN_HEIGHT = 36;
+        private static final int HEADER_MAX_HEIGHT = 54;
+        private static final int HEADER_PADDING = 6;
+        private static final int CONTENT_BOTTOM_PADDING = 56;
         private static final int SECTION_TITLE_HEIGHT = 12;
         private static final int SECTION_LINE_WIDTH = 140;
-        private static final int SCROLL_STEP = 12;
+        private static final int SCROLL_STEP = 16;
+        private static final float SCROLL_SMOOTHING = 12.0f;
 
         private final List<Section> sections = new ArrayList<>();
-        private int scrollOffset = 0;
+        private float scrollOffset = 0f;
+        private float targetScrollOffset = 0f;
+        private int appliedScrollOffset = 0;
         private int maxScroll = 0;
+        private int headerHeight = HEADER_MAX_HEIGHT;
+        private int contentTop = HEADER_MAX_HEIGHT + HEADER_PADDING;
+        private long lastScrollUpdateMs = 0L;
 
         protected ConfigScreen(Screen parent) {
             super(Text.literal("Screenshot Metadata Config").formatted(Formatting.BOLD));
@@ -45,8 +54,9 @@ public class ModMenuIntegration implements ModMenuApi {
             this.clearChildren();
             this.sections.clear();
             ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
+            updateLayoutMetrics();
             int centerX = this.width / 2;
-            int y = CONTENT_TOP - scrollOffset;
+            int y = contentTop - appliedScrollOffset;
 
             // ===== OUTPUT FORMATS SECTION =====
             y = drawSection(centerX, y, "Output Formats", 0x88FF88);
@@ -170,13 +180,12 @@ public class ModMenuIntegration implements ModMenuApi {
                 .dimensions(centerX - BUTTON_WIDTH / 2, this.height - 30, BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());
 
-            int contentHeight = Math.max(0, (y + scrollOffset) - CONTENT_TOP);
-            int viewHeight = Math.max(0, this.height - CONTENT_TOP - CONTENT_BOTTOM_PADDING);
+            int contentHeight = Math.max(0, (y + appliedScrollOffset) - contentTop);
+            int viewHeight = Math.max(0, this.height - contentTop - CONTENT_BOTTOM_PADDING);
             maxScroll = Math.max(0, contentHeight - viewHeight);
-            if (scrollOffset > maxScroll) {
-                scrollOffset = maxScroll;
-                this.init();
-            }
+            targetScrollOffset = clampFloat(targetScrollOffset, 0f, maxScroll);
+            scrollOffset = clampFloat(scrollOffset, 0f, maxScroll);
+            appliedScrollOffset = clampInt(Math.round(scrollOffset), 0, maxScroll);
         }
 
         private int drawSection(int centerX, int y, String title, int color) {
@@ -233,27 +242,37 @@ public class ModMenuIntegration implements ModMenuApi {
 
         @Override
         public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-            // Modern gradient header background
-            context.fill(0, 0, this.width, 65, 0xFF1a1a2e);
-            context.fill(0, 65, this.width, 66, 0xFF16213e);
-            
-            // Main title with shadow
-            context.drawCenteredTextWithShadow(this.textRenderer, 
-                Text.literal("Screenshot Metadata Configuration").formatted(Formatting.BOLD, Formatting.AQUA), 
-                this.width / 2, 12, 0x88FFFF);
-            
-            // Subtitle
-            context.drawCenteredTextWithShadow(this.textRenderer, 
-                Text.literal("Customize what metadata gets saved with your screenshots").formatted(Formatting.GRAY), 
-                this.width / 2, 28, 0xAAAAAA);
+            updateSmoothScroll();
 
-            // Version info
-            context.drawCenteredTextWithShadow(this.textRenderer, 
-                Text.literal("Version " + ScreenshotMetadataMod.MOD_VERSION).formatted(Formatting.DARK_GRAY), 
-                this.width / 2, 45, 0x666666);
+            this.renderBackground(context);
+
+            // Modern header background (smaller to avoid cutting content)
+            context.fill(0, 0, this.width, headerHeight, 0xCC14192B);
+            context.fill(0, headerHeight - 1, this.width, headerHeight, 0xFF1F2750);
+
+            int centerX = this.width / 2;
+            boolean compactHeader = headerHeight <= 42;
+            if (compactHeader) {
+                context.drawCenteredTextWithShadow(this.textRenderer,
+                    Text.literal("Screenshot Metadata v" + ScreenshotMetadataMod.MOD_VERSION)
+                        .formatted(Formatting.BOLD, Formatting.AQUA),
+                    centerX, 10, 0xA0EFFF);
+            } else {
+                context.drawCenteredTextWithShadow(this.textRenderer,
+                    Text.literal("Screenshot Metadata Configuration").formatted(Formatting.BOLD, Formatting.AQUA),
+                    centerX, 10, 0x88FFFF);
+
+                context.drawCenteredTextWithShadow(this.textRenderer,
+                    Text.literal("Customize what metadata gets saved with your screenshots").formatted(Formatting.GRAY),
+                    centerX, 26, 0xAAAAAA);
+
+                context.drawCenteredTextWithShadow(this.textRenderer,
+                    Text.literal("Version " + ScreenshotMetadataMod.MOD_VERSION).formatted(Formatting.DARK_GRAY),
+                    centerX, 40, 0x666666);
+            }
 
             // Draw content with scissor for scrolling
-            context.enableScissor(0, CONTENT_TOP, this.width, this.height - CONTENT_TOP);
+            context.enableScissor(0, contentTop, this.width, this.height - 6);
             renderSections(context);
             super.render(context, mouseX, mouseY, delta);
             context.disableScissor();
@@ -269,11 +288,7 @@ public class ModMenuIntegration implements ModMenuApi {
 
         @Override
         public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-            int nextScroll = Math.max(0, Math.min(scrollOffset - (int)(verticalAmount * SCROLL_STEP), maxScroll));
-            if (nextScroll != scrollOffset) {
-                scrollOffset = nextScroll;
-                this.init();
-            }
+            targetScrollOffset = clampFloat(targetScrollOffset - (float) (verticalAmount * SCROLL_STEP), 0f, maxScroll);
             return true;
         }
 
@@ -281,7 +296,7 @@ public class ModMenuIntegration implements ModMenuApi {
             int centerX = this.width / 2;
             for (Section section : sections) {
                 int y = section.y;
-                if (y < CONTENT_TOP - 20 || y > this.height) {
+                if (y < contentTop - 24 || y > this.height) {
                     continue;
                 }
                 int textColor = 0xFF000000 | section.color;
@@ -291,6 +306,39 @@ public class ModMenuIntegration implements ModMenuApi {
                 int lineY = y + SECTION_TITLE_HEIGHT;
                 context.fill(centerX - SECTION_LINE_WIDTH, lineY, centerX + SECTION_LINE_WIDTH, lineY + 1, 0x33FFFFFF);
             }
+        }
+
+        private void updateLayoutMetrics() {
+            int targetHeader = Math.max(HEADER_MIN_HEIGHT, Math.min(HEADER_MAX_HEIGHT, this.height / 6));
+            headerHeight = targetHeader;
+            contentTop = headerHeight + HEADER_PADDING;
+        }
+
+        private void updateSmoothScroll() {
+            long nowMs = Util.getMeasuringTimeMs();
+            if (lastScrollUpdateMs == 0L) {
+                lastScrollUpdateMs = nowMs;
+                return;
+            }
+            float deltaSeconds = (nowMs - lastScrollUpdateMs) / 1000f;
+            lastScrollUpdateMs = nowMs;
+
+            float t = 1f - (float) Math.exp(-SCROLL_SMOOTHING * deltaSeconds);
+            scrollOffset += (targetScrollOffset - scrollOffset) * t;
+
+            int nextApplied = clampInt(Math.round(scrollOffset), 0, maxScroll);
+            if (nextApplied != appliedScrollOffset) {
+                appliedScrollOffset = nextApplied;
+                this.init();
+            }
+        }
+
+        private static int clampInt(int value, int min, int max) {
+            return Math.max(min, Math.min(value, max));
+        }
+
+        private static float clampFloat(float value, float min, float max) {
+            return Math.max(min, Math.min(value, max));
         }
     }
 
