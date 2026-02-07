@@ -23,6 +23,9 @@ public class ScreenshotMetadataConfig {
     public boolean writeXmpSidecar = true;
     public boolean writeJsonSidecar = true;
     public boolean includeWorldSeed = true;
+    public boolean privacyMode = false;
+    public boolean renameScreenshots = false;
+    public String screenshotNameTemplate = "{date}_{dimension}_X{x}_Z{z}";
 
     // Metadata filtering options
     public boolean includePerformanceMetrics = true;
@@ -32,6 +35,7 @@ public class ScreenshotMetadataConfig {
     public boolean includeCoordinates = true;
     public boolean includeBiomeInfo = true;
     public boolean includeWeatherInfo = true;
+    public boolean includeModpackContext = true;
 
     public static ScreenshotMetadataConfig get() {
         if (instance == null || !loaded) {

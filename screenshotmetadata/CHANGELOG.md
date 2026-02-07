@@ -2,6 +2,30 @@
 
 All notable changes to the Screenshot Metadata Mod are documented here. This changelog focuses on functional changes to the mod itself.
 
+## [1.1.0] - 2026-02-04
+
+### Added
+- Privacy mode toggle (obfuscates coords, hides server IP, hashes world seed)
+- Screenshot filename templates with presets
+- Tag input screen (keybind) with tag export to JSON/XMP
+- ModMenu tooltips and collapsible sections
+
+### Fixed
+- Mixin package crash when loading helper classes in the mixin package
+- Fixed PNG metadata write failures by correcting PNG `iTXtEntry` fields (`text` instead of `value`), which prevented metadata merge/write errors.
+- Fixed metadata fallback reliability by rebuilding image metadata before switching from `iTXt` to `tEXt`.
+- Fixed low-information PNG write logs (`null`) by reporting the underlying exception reason.
+
+## [1.0.4.2] - 2026-02-03
+
+### Added
+- Weather metadata (rain/thunder state + gradients) with ModMenu toggle
+- Optional JSON-only modpack context: enabled resource packs, shader pack name, and truncated mod list
+
+### Improved
+- ModMenu config screen: visible section headers and dynamic scroll bounds
+- PNG metadata now prefers iTXt chunks with tEXt fallback for broader Unicode support
+
 ## [1.0.4.1]
 
 ### Fixed

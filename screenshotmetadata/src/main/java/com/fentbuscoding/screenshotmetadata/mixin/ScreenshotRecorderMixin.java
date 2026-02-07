@@ -2,9 +2,12 @@ package com.fentbuscoding.screenshotmetadata.mixin;
 
 import com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod;
 import com.fentbuscoding.screenshotmetadata.config.ScreenshotMetadataConfig;
+import com.fentbuscoding.screenshotmetadata.metadata.JsonSidecarContext;
 import com.fentbuscoding.screenshotmetadata.metadata.JsonSidecarWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.PngMetadataWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.XmpSidecarWriter;
+import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.registry.entry.RegistryEntry;
@@ -16,13 +19,21 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.io.File;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -35,6 +46,7 @@ public class ScreenshotRecorderMixin {
 
     private static final String SCREENSHOTS_DIR = "screenshots";
     private static final ThreadLocal<File> LAST_SCREENSHOT_FILE = new ThreadLocal<>();
+    private static final int MAX_MOD_LIST_ENTRIES = 200;
     
             @Inject(method = "saveScreenshot(Ljava/io/File;Lnet/minecraft/client/gl/Framebuffer;Ljava/util/function/Consumer;)V", 
                 at = @At("HEAD"), require = 0)
@@ -108,9 +120,13 @@ public class ScreenshotRecorderMixin {
                 ScreenshotMetadataMod.LOGGER.warn("No metadata collected");
                 return;
             }
-            
+
+            screenshotFile = maybeRenameScreenshot(screenshotFile, metadata);
+
+            JsonSidecarContext sidecarContext = collectJsonSidecarContext(client);
+
             // Add metadata using both methods
-            addMetadataToScreenshot(screenshotFile, metadata);
+            addMetadataToScreenshot(screenshotFile, metadata, sidecarContext);
             
             ScreenshotMetadataMod.LOGGER.info("Successfully added metadata to screenshot: {}", screenshotFile.getName());
             
@@ -267,9 +283,18 @@ public class ScreenshotRecorderMixin {
             
             // Player coordinates
             if (config.includeCoordinates && client.player != null) {
-                metadata.put("X", String.valueOf((int) client.player.getX()));
-                metadata.put("Y", String.valueOf((int) client.player.getY()));
-                metadata.put("Z", String.valueOf((int) client.player.getZ()));
+                int x = (int) client.player.getX();
+                int y = (int) client.player.getY();
+                int z = (int) client.player.getZ();
+                if (config.privacyMode) {
+                    x = roundToNearest(x, 100);
+                    y = roundToNearest(y, 100);
+                    z = roundToNearest(z, 100);
+                    metadata.put("CoordinatesObfuscated", "true");
+                }
+                metadata.put("X", String.valueOf(x));
+                metadata.put("Y", String.valueOf(y));
+                metadata.put("Z", String.valueOf(z));
                 metadata.put("Yaw", String.format("%.1f", client.player.getYaw()));
                 metadata.put("Pitch", String.format("%.1f", client.player.getPitch()));
                 metadata.put("Facing", getFacingDirection(client.player.getYaw()));
@@ -296,6 +321,10 @@ public class ScreenshotRecorderMixin {
                 long timeOfDay = client.world.getTimeOfDay() % 24000L;
                 metadata.put("TimeOfDayTicks", String.valueOf(timeOfDay));
                 metadata.put("TimeOfDay", formatTimeOfDay(timeOfDay));
+
+                if (config.includeWeatherInfo) {
+                    addWeatherMetadata(client, metadata);
+                }
             }
 
             // Server / world info
@@ -305,14 +334,22 @@ public class ScreenshotRecorderMixin {
                 }
                 if (config.includeWorldSeed
                     && client.getServer() != null && client.getServer().getOverworld() != null) {
-                    metadata.put("WorldSeed", String.valueOf(client.getServer().getOverworld().getSeed()));
+                    long seed = client.getServer().getOverworld().getSeed();
+                    if (config.privacyMode) {
+                        metadata.put("WorldSeed", hashSeed(seed));
+                        metadata.put("WorldSeedHashed", "true");
+                    } else {
+                        metadata.put("WorldSeed", String.valueOf(seed));
+                    }
                 }
                 metadata.put("ServerType", "Singleplayer");
             } else if (client.getCurrentServerEntry() != null) {
                 metadata.put("ServerType", "Multiplayer");
                 metadata.put("ServerName", client.getCurrentServerEntry().name);
                 String serverAddress = client.getCurrentServerEntry().address;
-                if (serverAddress != null && !serverAddress.toLowerCase().contains("realms")) {
+                if (!config.privacyMode
+                    && serverAddress != null
+                    && !serverAddress.toLowerCase().contains("realms")) {
                     metadata.put("ServerAddress", serverAddress);
                 }
             }
@@ -383,6 +420,8 @@ public class ScreenshotRecorderMixin {
             if (config.includePotionEffects && client.player != null) {
                 addPotionEffectsMetadata(client.player, metadata);
             }
+
+            addPendingTags(metadata);
             
         } catch (Exception e) {
             ScreenshotMetadataMod.LOGGER.error("Error collecting metadata", e);
@@ -559,7 +598,9 @@ public class ScreenshotRecorderMixin {
     /**
      * Adds metadata to the screenshot using both PNG and XMP methods
      */
-    private static void addMetadataToScreenshot(File screenshotFile, Map<String, String> metadata) {
+    private static void addMetadataToScreenshot(File screenshotFile,
+                                                Map<String, String> metadata,
+                                                JsonSidecarContext sidecarContext) {
         ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
         // Add PNG embedded metadata
         if (config.writePngMetadata) {
@@ -580,11 +621,310 @@ public class ScreenshotRecorderMixin {
         // Create JSON sidecar file for easy parsing
         if (config.writeJsonSidecar) {
             try {
-                JsonSidecarWriter.writeSidecarFile(screenshotFile, metadata);
+                JsonSidecarWriter.writeSidecarFile(screenshotFile, metadata, sidecarContext);
             } catch (Exception e) {
                 ScreenshotMetadataMod.LOGGER.error("Failed to create JSON sidecar for {}", screenshotFile.getName(), e);
             }
         }
+    }
+
+    /**
+     * Adds weather details to metadata
+     */
+    private static void addWeatherMetadata(MinecraftClient client, Map<String, String> metadata) {
+        try {
+            if (client == null || client.world == null) {
+                return;
+            }
+
+            boolean raining = client.world.isRaining();
+            boolean thundering = client.world.isThundering();
+            String weather = thundering ? "Thunder" : (raining ? "Rain" : "Clear");
+
+            metadata.put("Weather", weather);
+            metadata.put("IsRaining", String.valueOf(raining));
+            metadata.put("IsThundering", String.valueOf(thundering));
+            metadata.put("RainGradient", String.format("%.2f", client.world.getRainGradient(1.0f)));
+            metadata.put("ThunderGradient", String.format("%.2f", client.world.getThunderGradient(1.0f)));
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.debug("Could not collect weather metadata", e);
+        }
+    }
+
+    /**
+     * Collects extra context for JSON sidecars only.
+     */
+    private static JsonSidecarContext collectJsonSidecarContext(MinecraftClient client) {
+        ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
+        if (!config.writeJsonSidecar || !config.includeModpackContext) {
+            return null;
+        }
+
+        List<String> resourcePacks = collectEnabledResourcePacks(client);
+        String shaderPack = detectShaderPack();
+
+        List<String> modEntries = new ArrayList<>();
+        int modCount = -1;
+        boolean modListTruncated = false;
+
+        try {
+            List<ModContainer> mods = new ArrayList<>(FabricLoader.getInstance().getAllMods());
+            mods.sort(Comparator.comparing(mod -> mod.getMetadata().getId()));
+            modCount = mods.size();
+
+            for (ModContainer mod : mods) {
+                if (modEntries.size() >= MAX_MOD_LIST_ENTRIES) {
+                    modListTruncated = true;
+                    break;
+                }
+                String id = mod.getMetadata().getId();
+                String version = mod.getMetadata().getVersion().getFriendlyString();
+                modEntries.add(id + "@" + version);
+            }
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.debug("Could not collect mod list", e);
+        }
+
+        return new JsonSidecarContext(
+            resourcePacks,
+            shaderPack,
+            modEntries,
+            modCount,
+            modListTruncated
+        );
+    }
+
+    private static List<String> collectEnabledResourcePacks(MinecraftClient client) {
+        List<String> packs = new ArrayList<>();
+        try {
+            if (client == null || client.getResourcePackManager() == null) {
+                return packs;
+            }
+
+            Object packManager = client.getResourcePackManager();
+            Object enabledIds = invokeIfPresent(packManager, "getEnabledIds");
+            if (enabledIds instanceof Iterable<?> iterable) {
+                for (Object id : iterable) {
+                    if (id != null) {
+                        packs.add(id.toString());
+                    }
+                }
+            }
+
+            if (packs.isEmpty()) {
+                Object profiles = invokeIfPresent(packManager, "getEnabledProfiles");
+                if (profiles instanceof Iterable<?> iterableProfiles) {
+                    for (Object profile : iterableProfiles) {
+                        if (profile == null) {
+                            continue;
+                        }
+                        Object id = invokeIfPresent(profile, "getId");
+                        if (id != null) {
+                            packs.add(id.toString());
+                            continue;
+                        }
+                        Object name = invokeIfPresent(profile, "getDisplayName");
+                        if (name != null) {
+                            packs.add(name.toString());
+                            continue;
+                        }
+                        packs.add(profile.toString());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.debug("Could not collect resource packs", e);
+        }
+        return packs;
+    }
+
+    private static String detectShaderPack() {
+        try {
+            if (FabricLoader.getInstance().isModLoaded("iris")) {
+                String irisPack = tryGetIrisShaderPack();
+                return irisPack != null ? irisPack : "Unknown";
+            }
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.debug("Could not detect shader pack", e);
+        }
+        return "None";
+    }
+
+    private static String tryGetIrisShaderPack() {
+        try {
+            Class<?> irisApiClass = Class.forName("net.irisshaders.iris.api.v0.IrisApi");
+            Method getInstance = irisApiClass.getMethod("getInstance");
+            Object irisApi = getInstance.invoke(null);
+            if (irisApi == null) {
+                return null;
+            }
+
+            Object packName = invokeIfPresent(irisApi, "getShaderPackName");
+            if (packName instanceof String && !((String) packName).isBlank()) {
+                return ((String) packName).trim();
+            }
+
+            Object config = invokeIfPresent(irisApi, "getConfig");
+            if (config != null) {
+                Object nameFromConfig = invokeIfPresent(config, "getShaderPackName");
+                if (nameFromConfig instanceof String && !((String) nameFromConfig).isBlank()) {
+                    return ((String) nameFromConfig).trim();
+                }
+                Object packFromConfig = invokeIfPresent(config, "getShaderPack");
+                String derived = extractNameFromPack(packFromConfig);
+                if (derived != null) {
+                    return derived;
+                }
+            }
+
+            Object pack = invokeIfPresent(irisApi, "getShaderPack");
+            return extractNameFromPack(pack);
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.debug("Iris shader detection failed", e);
+            return null;
+        }
+    }
+
+    private static Object invokeIfPresent(Object target, String methodName) {
+        try {
+            Method method = target.getClass().getMethod(methodName);
+            return method.invoke(target);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String extractNameFromPack(Object pack) {
+        if (pack == null) {
+            return null;
+        }
+        Object name = invokeIfPresent(pack, "getName");
+        if (name instanceof String && !((String) name).isBlank()) {
+            return ((String) name).trim();
+        }
+        String fallback = pack.toString();
+        return fallback != null && !fallback.isBlank() ? fallback : null;
+    }
+
+    private static void addPendingTags(Map<String, String> metadata) {
+        String rawTags = ScreenshotMetadataMod.consumePendingTags();
+        if (rawTags == null || rawTags.isBlank()) {
+            return;
+        }
+
+        List<String> tags = parseTags(rawTags);
+        if (tags.isEmpty()) {
+            return;
+        }
+
+        metadata.put("Tags", String.join(", ", tags));
+        metadata.put("TagCount", String.valueOf(tags.size()));
+    }
+
+    private static List<String> parseTags(String rawTags) {
+        List<String> tags = new ArrayList<>();
+        if (rawTags == null) {
+            return tags;
+        }
+        String[] parts = rawTags.split(",");
+        for (String part : parts) {
+            String trimmed = part.trim();
+            if (!trimmed.isEmpty() && !tags.contains(trimmed)) {
+                tags.add(trimmed);
+            }
+        }
+        return tags;
+    }
+
+    private static int roundToNearest(int value, int step) {
+        if (step <= 0) {
+            return value;
+        }
+        return Math.round(value / (float) step) * step;
+    }
+
+    private static String hashSeed(long seed) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(Long.toString(seed).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.debug("Could not hash world seed", e);
+            return "unknown";
+        }
+    }
+
+    private static File maybeRenameScreenshot(File screenshotFile, Map<String, String> metadata) {
+        ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
+        if (screenshotFile == null || !config.renameScreenshots) {
+            return screenshotFile;
+        }
+        String template = config.screenshotNameTemplate;
+        if (template == null || template.isBlank()) {
+            return screenshotFile;
+        }
+
+        String baseName = applyTemplate(template, metadata);
+        baseName = sanitizeFileName(baseName);
+        if (baseName.isBlank()) {
+            return screenshotFile;
+        }
+
+        File parent = screenshotFile.getParentFile();
+        File target = new File(parent, baseName + ".png");
+        if (target.equals(screenshotFile)) {
+            return screenshotFile;
+        }
+
+        int suffix = 1;
+        while (target.exists()) {
+            target = new File(parent, baseName + "_" + suffix + ".png");
+            suffix++;
+        }
+
+        try {
+            Files.move(screenshotFile.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE);
+            return target;
+        } catch (Exception atomicFailure) {
+            try {
+                Files.move(screenshotFile.toPath(), target.toPath());
+                return target;
+            } catch (Exception e) {
+                ScreenshotMetadataMod.LOGGER.warn("Failed to rename screenshot {} to {}: {}",
+                    screenshotFile.getName(), target.getName(), e.getMessage());
+                return screenshotFile;
+            }
+        }
+    }
+
+    private static String applyTemplate(String template, Map<String, String> metadata) {
+        String date = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
+        String time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
+        String datetime = date + "_" + time;
+
+        String result = template;
+        result = result.replace("{date}", date);
+        result = result.replace("{time}", time);
+        result = result.replace("{datetime}", datetime);
+        result = result.replace("{dimension}", metadata.getOrDefault("Dimension", "Unknown"));
+        result = result.replace("{biome}", metadata.getOrDefault("Biome", "Unknown"));
+        result = result.replace("{x}", metadata.getOrDefault("X", "NA"));
+        result = result.replace("{y}", metadata.getOrDefault("Y", "NA"));
+        result = result.replace("{z}", metadata.getOrDefault("Z", "NA"));
+        result = result.replace("{world}", metadata.getOrDefault("WorldName", "World"));
+        result = result.replace("{player}", metadata.getOrDefault("Username", "Player"));
+        return result;
+    }
+
+    private static String sanitizeFileName(String name) {
+        if (name == null) {
+            return "";
+        }
+        return name.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
     }
 
     private static boolean writePngMetadataWithRetry(File screenshotFile, Map<String, String> metadata) {

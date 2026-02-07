@@ -124,7 +124,14 @@ public class XmpSidecarWriter {
         xmp.append("   <dc:creator>").append(escapeXml(creator)).append("</dc:creator>\n");
         
         // Subject/Keywords
-        xmp.append("   <dc:subject>Minecraft Screenshot</dc:subject>\n");
+        String subject = "Minecraft Screenshot";
+        if (metadata.containsKey("Tags")) {
+            String tags = metadata.get("Tags");
+            if (tags != null && !tags.isBlank()) {
+                subject = subject + ", " + tags;
+            }
+        }
+        xmp.append("   <dc:subject>").append(escapeXml(subject)).append("</dc:subject>\n");
         
         // Type
         xmp.append("   <dc:type>Image</dc:type>\n");
@@ -176,6 +183,17 @@ public class XmpSidecarWriter {
         
         if (metadata.containsKey("Username")) {
             xmp.append("   <minecraft:player>").append(escapeXml(metadata.get("Username"))).append("</minecraft:player>\n");
+        }
+
+        if (metadata.containsKey("Tags")) {
+            String tags = metadata.get("Tags");
+            if (tags != null && !tags.isBlank()) {
+                xmp.append("   <minecraft:tags>").append(escapeXml(tags)).append("</minecraft:tags>\n");
+            }
+        }
+
+        if (metadata.containsKey("Weather")) {
+            xmp.append("   <minecraft:weather>").append(escapeXml(metadata.get("Weather"))).append("</minecraft:weather>\n");
         }
     }
     
