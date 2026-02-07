@@ -1,3 +1,5 @@
+import java.util.Locale
+
 plugins {
 	id 'fabric-loom' version '1.15.3'
 	id 'maven-publish'
@@ -5,39 +7,70 @@ plugins {
 	id 'me.modmuss50.mod-publish-plugin' version '1.1.0'
 }
 
+def supportedProfiles = ["stable", "beta"]
+def mcProfile = providers.gradleProperty("mcProfile")
+		.orElse(providers.gradleProperty("default_mc_profile"))
+		.get()
+
+if (!supportedProfiles.contains(mcProfile)) {
+	throw new GradleException("Unknown mcProfile '${mcProfile}'. Supported profiles: ${supportedProfiles.join(', ')}")
+}
+
+def profileValue = { String key ->
+	def propName = "${mcProfile}_${key}"
+	if (!project.hasProperty(propName)) {
+		throw new GradleException("Missing required property '${propName}'")
+	}
+	project.property(propName).toString()
+}
+
+def minecraftVersion = profileValue("minecraft_version")
+def mappingsChannel = project.findProperty("${mcProfile}_mappings_channel")?.toString()?.toLowerCase(Locale.ROOT) ?: "yarn"
+def yarnMappings = mappingsChannel == "yarn" ? profileValue("yarn_mappings") : null
+def fabricVersion = profileValue("fabric_version")
+def publishTypeName = profileValue("publish_type").toLowerCase(Locale.ROOT)
+def minecraftDependency = "~${minecraftVersion}"
+def artifactMinecraftLabel = minecraftVersion.replaceAll("[^0-9A-Za-z._-]", "-")
+
 version = project.mod_version
 group = project.maven_group
 
 base {
-	archivesName = project.archives_base_name
+	archivesName = "${project.archives_base_name}-mc${artifactMinecraftLabel}"
 }
 
 repositories {
-		// Repositories for dependencies
-		maven { url = 'https://maven.fabricmc.net/' }
-		maven { url = 'https://maven.terraformersmc.com/' }
-		mavenCentral()
-		
-	}
+	maven { url = 'https://maven.fabricmc.net/' }
+	maven { url = 'https://maven.terraformersmc.com/' }
+	mavenCentral()
+}
 
 dependencies {
-	// To change the versions see the gradle.properties file
-	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+	minecraft "com.mojang:minecraft:${minecraftVersion}"
+	if (mappingsChannel == "official") {
+		mappings loom.officialMojangMappings()
+	} else if (mappingsChannel == "yarn") {
+		mappings "net.fabricmc:yarn:${yarnMappings}:v2"
+	} else {
+		throw new GradleException("Unknown mappings channel '${mappingsChannel}' for profile '${mcProfile}'. Supported: yarn, official")
+	}
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-	// Fabric API. This is technically optional, but you probably want it anyway.
-	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${fabricVersion}"
 	modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
 	modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 }
 
 processResources {
-	def modVersion = version
+	def modVersion = version.toString()
 	inputs.property "version", modVersion
+	inputs.property "minecraft_dependency", minecraftDependency
 
 	filesMatching("fabric.mod.json") {
-		expand "version": modVersion
+		expand(
+				version: modVersion,
+				minecraft_dependency: minecraftDependency
+		)
 	}
 }
 
@@ -45,18 +78,14 @@ tasks.withType(JavaCompile).configureEach {
 	it.options.release = 21
 }
 
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
 	kotlinOptions {
-		jvmTarget = 21
+		jvmTarget = "21"
 	}
 }
 
 java {
-	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-	// if it is present.
-	// If you remove this line, sources will not be generated.
 	withSourcesJar()
-
 	sourceCompatibility = JavaVersion.VERSION_21
 	targetCompatibility = JavaVersion.VERSION_21
 }
@@ -65,65 +94,56 @@ jar {
 	inputs.property "archivesName", project.base.archivesName
 
 	from("LICENSE.MIT") {
-		rename { "${it}_${inputs.properties.archivesName}"}
+		rename { "${it}_${inputs.properties.archivesName}" }
 	}
 }
 
-// Publishing configuration for CurseForge and Modrinth
+def changelogFile = file("CHANGELOG.md").exists() ? file("CHANGELOG.md") : file("../CHANGELOG.md")
+
 publishMods {
-	displayName = "Screenshot Metadata v${project.version}"
+	displayName = "Screenshot Metadata v${project.version} (MC ${minecraftVersion})"
 	file = remapJar.archiveFile
-	changelog = rootProject.file("CHANGELOG.md").exists() ? rootProject.file("CHANGELOG.md").text : "No changelog provided"
-	type = STABLE
+	changelog = changelogFile.exists() ? changelogFile.text : "No changelog provided"
+	type = publishTypeName == "beta" ? BETA : (publishTypeName == "alpha" ? ALPHA : STABLE)
 	modLoaders.add("fabric")
 
-	// CurseForge publishing
 	curseforge {
 		projectId = project.curseforge_id
 		accessToken = providers.environmentVariable("CURSEFORGE_TOKEN")
-		
-		minecraftVersions.add(project.minecraft_version)
-		
+		minecraftVersions.add(minecraftVersion)
+
 		requires {
 			slug = "fabric-api"
 		}
-		
+
 		optional {
 			slug = "modmenu"
 		}
 	}
 
-	// Modrinth publishing  
 	modrinth {
 		projectId = project.modrinth_id
 		accessToken = providers.environmentVariable("MODRINTH_TOKEN")
-		
-		minecraftVersions.add(project.minecraft_version)
-		
+		minecraftVersions.add(minecraftVersion)
+
 		requires {
 			slug = "fabric-api"
 		}
-		
+
 		optional {
 			slug = "modmenu"
 		}
 	}
 }
 
-// configure the maven publication
 publishing {
 	publications {
 		create("mavenJava", MavenPublication) {
-			artifactId = project.archives_base_name
+			artifactId = "${project.archives_base_name}-mc${artifactMinecraftLabel}"
 			from components.java
 		}
 	}
 
-	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
 	repositories {
-		// Add repositories to publish to here.
-		// Notice: This block does NOT have the same function as the block in the top level.
-		// The repositories here will be used for publishing your artifact, not for
-		// retrieving dependencies.
 	}
 }

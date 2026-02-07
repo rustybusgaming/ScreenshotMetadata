@@ -12,7 +12,11 @@ jobs:
     
     strategy:
       matrix:
-        java-version: [21]
+        include:
+          - mc-profile: stable
+            java-version: 21
+          - mc-profile: beta
+            java-version: 25
         
     steps:
     - name: Checkout repository
@@ -37,14 +41,14 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x screenshotmetadata/gradlew
       
-    - name: Build with Gradle
-      run: cd screenshotmetadata && ./gradlew clean build --no-configuration-cache
+    - name: Build with Gradle (${{ matrix.mc-profile }})
+      run: cd screenshotmetadata && ./gradlew clean build -PmcProfile=${{ matrix.mc-profile }} --no-configuration-cache
       
     - name: Upload build artifacts
       uses: actions/upload-artifact@v6
       if: success()
       with:
-        name: build-artifacts-java-${{ matrix.java-version }}
+        name: build-artifacts-java-${{ matrix.java-version }}-${{ matrix.mc-profile }}
         path: |
           screenshotmetadata/build/libs/*.jar
           screenshotmetadata/build/reports/

@@ -115,8 +115,16 @@ When you take a screenshot, the mod creates:
 
 ### Build the Project
 ```
-./gradlew build
+cd screenshotmetadata
+./gradlew build -PmcProfile=stable
 ```
+
+### Build Beta Target
+```
+cd screenshotmetadata
+./gradlew build -PmcProfile=beta
+```
+Beta profile uses official Mojang mappings when Yarn is unavailable.
 
 ### Run in Development
 ```

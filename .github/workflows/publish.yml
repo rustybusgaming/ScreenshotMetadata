@@ -5,23 +5,36 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to publish'
+      profile:
+        description: 'Minecraft target profile'
         required: true
-        default: '1.0.0'
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - stable
+          - beta
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - mc-profile: stable
+            java-version: 21
+          - mc-profile: beta
+            java-version: 25
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.profile == 'all' || github.event.inputs.profile == matrix.mc-profile
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v6
       
-    - name: Set up JDK 21
+    - name: Set up JDK ${{ matrix.java-version }}
       uses: actions/setup-java@v5
       with:
-        java-version: '21'
+        java-version: ${{ matrix.java-version }}
         distribution: 'temurin'
         
     - name: Cache Gradle packages
@@ -37,12 +50,12 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x screenshotmetadata/gradlew
       
-    - name: Build mod
-      run: cd screenshotmetadata && ./gradlew clean build --no-configuration-cache
+    - name: Build mod (${{ matrix.mc-profile }})
+      run: cd screenshotmetadata && ./gradlew clean build -PmcProfile=${{ matrix.mc-profile }} --no-configuration-cache
       
-    - name: Publish to CurseForge and Modrinth
+    - name: Publish to CurseForge and Modrinth (${{ matrix.mc-profile }})
       if: env.CURSEFORGE_TOKEN != '' && env.MODRINTH_TOKEN != ''
-      run: cd screenshotmetadata && ./gradlew publishMods --no-configuration-cache
+      run: cd screenshotmetadata && ./gradlew publishMods -PmcProfile=${{ matrix.mc-profile }} --no-configuration-cache
       env:
         CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
         MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
@@ -50,5 +63,5 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v6
       with:
-        name: mod-jars
+        name: mod-jars-${{ matrix.mc-profile }}
         path: screenshotmetadata/build/libs/*.jar

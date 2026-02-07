@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "screenshotmetadata",
-  "version": "1.1.0",
+  "version": "${version}",
   "name": "Screenshot Metadata",
   "description": "Automatically adds comprehensive metadata to Minecraft screenshots including player info, coordinates, world data, and biome information. Metadata is stored both as PNG text chunks and XMP sidecar files for maximum compatibility.",
   "authors": ["fentbuscoding"],
@@ -18,7 +18,7 @@
   "depends": {
     "fabricloader": ">=0.16.0",
     "fabric-api": "*",
-    "minecraft": "~1.21.11",
+    "minecraft": "${minecraft_dependency}",
     "java": ">=21"
   },
   "suggests": {
