@@ -191,7 +191,7 @@ public class TagInputScreen extends Screen {
             tags.add(preset.trim());
         }
         tagField.setText(String.join(", ", tags));
-        tagField.setCursorToEnd();
+        tagField.setCursorToEnd(false);
     }
 
     private static List<String> parseTags(String rawTags) {
