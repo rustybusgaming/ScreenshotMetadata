@@ -124,7 +124,7 @@ cd screenshotmetadata
 cd screenshotmetadata
 ./gradlew build -PmcProfile=beta
 ```
-Beta profile targets `25w46a` and uses official Mojang mappings (26.1 snapshot line).
+Beta profile targets `25w46a` and uses Yarn mappings `25w46a+build.4` (26.1 snapshot line) with the Fabric key-binding module.
 
 ### Run in Development
 ```

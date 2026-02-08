@@ -6,6 +6,7 @@
   "refmap": "screenshotmetadata.refmap.json",
   "mixins": [],
   "client": [
+    "MinecraftClientMixin",
     "ScreenshotRecorderMixin"
   ],
   "injectors": {
