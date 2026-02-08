@@ -14,6 +14,11 @@ on:
           - all
           - stable
           - beta
+      version:
+        description: 'Version to publish (optional override for mod_version)'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   publish:
@@ -26,7 +31,6 @@ jobs:
             java-version: 21
           - mc-profile: beta
             java-version: 25
-    if: github.event_name != 'workflow_dispatch' || github.event.inputs.profile == 'all' || github.event.inputs.profile == matrix.mc-profile
     
     steps:
     - name: Checkout repository
@@ -52,16 +56,30 @@ jobs:
       run: chmod +x screenshotmetadata/gradlew
       
     - name: Build mod (${{ matrix.mc-profile }})
-      run: cd screenshotmetadata && ./gradlew clean build -PmcProfile=${{ matrix.mc-profile }} --no-configuration-cache
+      if: github.event_name != 'workflow_dispatch' || github.event.inputs.profile == 'all' || github.event.inputs.profile == matrix.mc-profile
+      run: |
+        EXTRA_VERSION_ARG=""
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+          EXTRA_VERSION_ARG="-Pmod_version=${{ github.event.inputs.version }}"
+        fi
+        cd screenshotmetadata
+        ./gradlew clean build -PmcProfile=${{ matrix.mc-profile }} $EXTRA_VERSION_ARG --no-configuration-cache
       
     - name: Publish to CurseForge and Modrinth (${{ matrix.mc-profile }})
-      if: env.CURSEFORGE_TOKEN != '' && env.MODRINTH_TOKEN != ''
-      run: cd screenshotmetadata && ./gradlew publishMods -PmcProfile=${{ matrix.mc-profile }} --no-configuration-cache
+      if: (github.event_name != 'workflow_dispatch' || github.event.inputs.profile == 'all' || github.event.inputs.profile == matrix.mc-profile) && env.CURSEFORGE_TOKEN != '' && env.MODRINTH_TOKEN != ''
+      run: |
+        EXTRA_VERSION_ARG=""
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+          EXTRA_VERSION_ARG="-Pmod_version=${{ github.event.inputs.version }}"
+        fi
+        cd screenshotmetadata
+        ./gradlew publishMods -PmcProfile=${{ matrix.mc-profile }} $EXTRA_VERSION_ARG --no-configuration-cache
       env:
         CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
         MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
         
     - name: Upload build artifacts
+      if: github.event_name != 'workflow_dispatch' || github.event.inputs.profile == 'all' || github.event.inputs.profile == matrix.mc-profile
       uses: actions/upload-artifact@v6
       with:
         name: mod-jars-${{ matrix.mc-profile }}
