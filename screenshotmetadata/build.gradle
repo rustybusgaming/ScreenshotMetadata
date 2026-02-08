@@ -30,6 +30,8 @@ def yarnMappings = mappingsChannel == "yarn" ? profileValue("yarn_mappings") : n
 def fabricVersion = profileValue("fabric_version")
 def isBetaProfile = mcProfile == "beta"
 def publishTypeName = profileValue("publish_type").toLowerCase(Locale.ROOT)
+def curseforgeMinecraftVersion = project.findProperty("${mcProfile}_curseforge_minecraft_version")?.toString() ?: minecraftVersion
+def modrinthMinecraftVersion = project.findProperty("${mcProfile}_modrinth_minecraft_version")?.toString() ?: minecraftVersion
 def releaseVersionPattern = ~/^\d+\.\d+(\.\d+)?$/
 def minecraftDependency = (minecraftVersion ==~ releaseVersionPattern) ? "~${minecraftVersion}" : minecraftVersion
 def artifactMinecraftLabel = minecraftVersion.replaceAll("[^0-9A-Za-z._-]", "-")
@@ -117,7 +119,7 @@ publishMods {
 	curseforge {
 		projectId = project.curseforge_id
 		accessToken = providers.environmentVariable("CURSEFORGE_TOKEN")
-		minecraftVersions.add(minecraftVersion)
+		minecraftVersions.add(curseforgeMinecraftVersion)
 
 		requires {
 			slug = "fabric-api"
@@ -131,7 +133,7 @@ publishMods {
 	modrinth {
 		projectId = project.modrinth_id
 		accessToken = providers.environmentVariable("MODRINTH_TOKEN")
-		minecraftVersions.add(minecraftVersion)
+		minecraftVersions.add(modrinthMinecraftVersion)
 
 		requires {
 			slug = "fabric-api"
