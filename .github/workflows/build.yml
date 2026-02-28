@@ -46,7 +46,7 @@ jobs:
       run: cd screenshotmetadata && ./gradlew clean build -PmcProfile=${{ matrix.mc-profile }} --no-configuration-cache
       
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       if: success()
       with:
         name: build-artifacts-java-${{ matrix.java-version }}-${{ matrix.mc-profile }}
