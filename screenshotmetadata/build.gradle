@@ -4,7 +4,7 @@ plugins {
 	id 'fabric-loom' version '1.16-SNAPSHOT'
 	id 'maven-publish'
 	id "org.jetbrains.kotlin.jvm" version "2.3.20"
-	id 'me.modmuss50.mod-publish-plugin' version '2.0.0'
+	id 'me.modmuss50.mod-publish-plugin' version '2.0.1'
 }
 
 def supportedProfiles = ["stable", "beta", "mc26", "mc26_1", "mc26_2",
