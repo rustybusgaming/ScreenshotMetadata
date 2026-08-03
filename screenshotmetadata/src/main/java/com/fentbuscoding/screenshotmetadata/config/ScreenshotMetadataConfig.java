@@ -42,6 +42,10 @@ public class ScreenshotMetadataConfig {
     public boolean includeBiomeInfo = true;
     public boolean includeWeatherInfo = true;
     public boolean includeModpackContext = true;
+    public boolean includeExperience = true;
+    public boolean includePlayerState = true;
+    public boolean includeLookTarget = true;
+    public boolean includeLightLevels = true;
     public String metadataProfile = MetadataProfile.FULL.id;
     public int configSchemaVersion = CURRENT_CONFIG_SCHEMA_VERSION;
 
@@ -128,6 +132,10 @@ public class ScreenshotMetadataConfig {
                 includeBiomeInfo = true;
                 includeWeatherInfo = true;
                 includeModpackContext = true;
+                includeExperience = true;
+                includePlayerState = true;
+                includeLookTarget = true;
+                includeLightLevels = true;
                 privacyMode = false;
             }
             case LIGHTWEIGHT -> {
@@ -140,6 +148,10 @@ public class ScreenshotMetadataConfig {
                 includeBiomeInfo = true;
                 includeWeatherInfo = false;
                 includeModpackContext = false;
+                includeExperience = false;
+                includePlayerState = false;
+                includeLookTarget = false;
+                includeLightLevels = false;
                 privacyMode = false;
             }
             case PRIVACY -> {
@@ -152,6 +164,10 @@ public class ScreenshotMetadataConfig {
                 includeBiomeInfo = true;
                 includeWeatherInfo = true;
                 includeModpackContext = false;
+                includeExperience = true;
+                includePlayerState = true;
+                includeLookTarget = false;
+                includeLightLevels = true;
                 privacyMode = true;
             }
         }
@@ -213,6 +229,10 @@ public class ScreenshotMetadataConfig {
                 && includeBiomeInfo
                 && includeWeatherInfo
                 && includeModpackContext
+                && includeExperience
+                && includePlayerState
+                && includeLookTarget
+                && includeLightLevels
                 && !privacyMode;
             case LIGHTWEIGHT -> !includeWorldSeed
                 && !includePerformanceMetrics
@@ -223,6 +243,10 @@ public class ScreenshotMetadataConfig {
                 && includeBiomeInfo
                 && !includeWeatherInfo
                 && !includeModpackContext
+                && !includeExperience
+                && !includePlayerState
+                && !includeLookTarget
+                && !includeLightLevels
                 && !privacyMode;
             case PRIVACY -> includeWorldSeed
                 && includePerformanceMetrics
@@ -233,6 +257,10 @@ public class ScreenshotMetadataConfig {
                 && includeBiomeInfo
                 && includeWeatherInfo
                 && !includeModpackContext
+                && includeExperience
+                && includePlayerState
+                && !includeLookTarget
+                && includeLightLevels
                 && privacyMode;
             case CUSTOM -> false;
         };
