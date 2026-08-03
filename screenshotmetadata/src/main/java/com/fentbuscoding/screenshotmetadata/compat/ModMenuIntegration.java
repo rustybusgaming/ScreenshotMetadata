@@ -152,7 +152,43 @@ public class ModMenuIntegration implements ModMenuApi {
                     updateButtonText(button, biomeLabel, config.includeBiomeInfo);
                 });
 
-                Text coordsLabel = Text.translatable("screen.screenshotmetadata.config.toggle.coordinates");
+                Text experienceLabel = Text.translatable("screen.screenshotmetadata.config.toggle.experience");
+                y += this.addToggleButton(centerX, y, experienceLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.experience.desc"), config.includeExperience,
+                button -> {
+                    config.includeExperience = !config.includeExperience;
+                    markProfileCustom(config);
+                    updateButtonText(button, experienceLabel, config.includeExperience);
+                });
+
+                Text playerStateLabel = Text.translatable("screen.screenshotmetadata.config.toggle.playerstate");
+                y += this.addToggleButton(centerX, y, playerStateLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.playerstate.desc"), config.includePlayerState,
+                button -> {
+                    config.includePlayerState = !config.includePlayerState;
+                    markProfileCustom(config);
+                    updateButtonText(button, playerStateLabel, config.includePlayerState);
+                });
+
+                Text lookTargetLabel = Text.translatable("screen.screenshotmetadata.config.toggle.looktarget");
+                y += this.addToggleButton(centerX, y, lookTargetLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.looktarget.desc"), config.includeLookTarget,
+                button -> {
+                    config.includeLookTarget = !config.includeLookTarget;
+                    markProfileCustom(config);
+                    updateButtonText(button, lookTargetLabel, config.includeLookTarget);
+                });
+
+                Text lightLevelsLabel = Text.translatable("screen.screenshotmetadata.config.toggle.lightlevels");
+                y += this.addToggleButton(centerX, y, lightLevelsLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.lightlevels.desc"), config.includeLightLevels,
+                button -> {
+                    config.includeLightLevels = !config.includeLightLevels;
+                    markProfileCustom(config);
+                    updateButtonText(button, lightLevelsLabel, config.includeLightLevels);
+                });
+
+                                Text coordsLabel = Text.translatable("screen.screenshotmetadata.config.toggle.coordinates");
                 y += this.addToggleButton(centerX, y, coordsLabel,
                 Text.translatable("screen.screenshotmetadata.config.toggle.coordinates.desc"), config.includeCoordinates,
                 button -> {
