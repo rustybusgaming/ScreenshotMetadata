@@ -423,60 +423,6 @@ public class ScreenshotRecorderMixin {
             if (config.includePotionEffects && client.player != null) {
                 addPotionEffectsMetadata(client.player, metadata);
             }
-
-            // Experience Level
-            if (config.includeExperience && client.player != null) {
-                metadata.put("ExperienceLevel", String.valueOf(client.player.experienceLevel));
-                metadata.put("ExperienceProgress", String.format("%.2f", client.player.experienceProgress));
-                metadata.put("TotalExperience", String.valueOf(client.player.totalExperience));
-            }
-
-            // Player State
-            if (config.includePlayerState && client.player != null) {
-                metadata.put("IsSneaking", String.valueOf(client.player.isSneaking()));
-                metadata.put("IsSprinting", String.valueOf(client.player.isSprinting()));
-                metadata.put("IsSwimming", String.valueOf(client.player.isSwimming()));
-// isFallFlying not easily available across versions
-                metadata.put("IsOnGround", String.valueOf(client.player.isOnGround()));
-                metadata.put("IsOnFire", String.valueOf(client.player.isOnFire()));
-                if (client.player.getAbilities() != null) {
-                    metadata.put("IsFlying", String.valueOf(client.player.getAbilities().flying));
-                }
-            }
-
-            // Light Levels
-            if (config.includeLightLevels && client.world != null && client.player != null) {
-                net.minecraft.util.math.BlockPos pos = client.player.getBlockPos();
-                if (client.world.isChunkLoaded(pos)) {
-                    metadata.put("LightLevelBlock", String.valueOf(client.world.getLightLevel(net.minecraft.world.LightType.BLOCK, pos)));
-                    metadata.put("LightLevelSky", String.valueOf(client.world.getLightLevel(net.minecraft.world.LightType.SKY, pos)));
-                }
-            }
-
-            // Look Target
-            if (config.includeLookTarget && client.crosshairTarget != null) {
-                if (client.crosshairTarget.getType() == net.minecraft.util.hit.HitResult.Type.BLOCK) {
-                    net.minecraft.util.hit.BlockHitResult blockHit = (net.minecraft.util.hit.BlockHitResult) client.crosshairTarget;
-                    net.minecraft.util.math.BlockPos pos = blockHit.getBlockPos();
-                    if (client.world != null) {
-                        net.minecraft.block.BlockState state = client.world.getBlockState(pos);
-                        metadata.put("LookingAtBlock", net.minecraft.registry.Registries.BLOCK.getId(state.getBlock()).toString());
-                        metadata.put("LookingAtBlockX", String.valueOf(pos.getX()));
-                        metadata.put("LookingAtBlockY", String.valueOf(pos.getY()));
-                        metadata.put("LookingAtBlockZ", String.valueOf(pos.getZ()));
-                        metadata.put("LookingAtBlockSide", blockHit.getSide().asString());
-                    }
-                } else if (client.crosshairTarget.getType() == net.minecraft.util.hit.HitResult.Type.ENTITY) {
-                    net.minecraft.util.hit.EntityHitResult entityHit = (net.minecraft.util.hit.EntityHitResult) client.crosshairTarget;
-                    net.minecraft.entity.Entity entity = entityHit.getEntity();
-                    metadata.put("LookingAtEntity", net.minecraft.registry.Registries.ENTITY_TYPE.getId(entity.getType()).toString());
-                    metadata.put("LookingAtEntityUUID", entity.getUuidAsString());
-                    if (entity.hasCustomName() && entity.getCustomName() != null) {
-                        metadata.put("LookingAtEntityName", entity.getCustomName().getString());
-                    }
-                }
-            }
-
             
         } catch (Exception e) {
             ScreenshotMetadataMod.LOGGER.error("Error collecting metadata", e);

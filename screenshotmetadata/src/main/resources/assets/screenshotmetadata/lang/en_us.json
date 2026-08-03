@@ -66,13 +66,5 @@
   "screen.screenshotmetadata.config.template.tokens": "{date} {time} {dimension} {biome} {x} {y} {z} {world} {player}",
   "screen.screenshotmetadata.config.template.preview": "Preview: %s",
   "screen.screenshotmetadata.toggle.on": "ON",
-  "screen.screenshotmetadata.toggle.off": "OFF",
-  "screen.screenshotmetadata.config.toggle.experience": "Experience Level",
-  "screen.screenshotmetadata.config.toggle.experience.desc": "Record player XP level and progress",
-  "screen.screenshotmetadata.config.toggle.playerstate": "Player State",
-  "screen.screenshotmetadata.config.toggle.playerstate.desc": "Record states like sneaking, sprinting, flying",
-  "screen.screenshotmetadata.config.toggle.looktarget": "Look Target",
-  "screen.screenshotmetadata.config.toggle.looktarget.desc": "Record block or entity the player is looking at",
-  "screen.screenshotmetadata.config.toggle.lightlevels": "Light Levels",
-  "screen.screenshotmetadata.config.toggle.lightlevels.desc": "Record block and sky light levels"
+  "screen.screenshotmetadata.toggle.off": "OFF"
 }
