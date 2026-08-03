@@ -41,12 +41,12 @@ jobs:
           # mc26/mc26_1/mc26_2 disabled: Mojang dropped proguard maps from 26.x version manifests,
           # and Fabric has not yet published Yarn or intermediary support for MC 26.x.
           # Re-enable these once Fabric Loom supports MC 26.x mappings.
-          # - mc-profile: mc26
-          #   java-version: 25
-          # - mc-profile: mc26_1
-          #   java-version: 25
-          # - mc-profile: mc26_2
-          #   java-version: 25
+          - mc-profile: mc26
+            java-version: 25
+          - mc-profile: mc26_1
+            java-version: 25
+          - mc-profile: mc26_2
+            java-version: 25
         
     steps:
     - name: Checkout repository

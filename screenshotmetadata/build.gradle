@@ -93,27 +93,34 @@ processResources {
 	}
 }
 
+def isMc26 = mcProfile.startsWith("mc26") || mcProfile == "beta"
+def targetJavaVersion = isMc26 ? 25 : 21
+
 tasks.withType(JavaCompile).configureEach {
-	it.options.release = 21
+	it.options.release = targetJavaVersion
 }
 
 tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
 	kotlinOptions {
-		jvmTarget = "21"
+		jvmTarget = targetJavaVersion.toString()
 	}
 }
 
 java {
 	withSourcesJar()
-	sourceCompatibility = JavaVersion.VERSION_21
-	targetCompatibility = JavaVersion.VERSION_21
+	sourceCompatibility = JavaVersion.toVersion(targetJavaVersion)
+	targetCompatibility = JavaVersion.toVersion(targetJavaVersion)
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+	}
 }
 
 jar {
-	inputs.property "archivesName", project.base.archivesName
+	def archName = project.base.archivesName.get()
+	inputs.property "archivesName", archName
 
 	from("LICENSE.MIT") {
-		rename { "${it}_${inputs.properties.archivesName}" }
+		rename { "${it}_${archName}" }
 	}
 }
 
