@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -38,9 +45,6 @@ jobs:
             java-version: 21
           - mc-profile: mc1_21_1
             java-version: 21
-          # mc26/mc26_1/mc26_2 disabled: Mojang dropped proguard maps from 26.x version manifests,
-          # and Fabric has not yet published Yarn or intermediary support for MC 26.x.
-          # Re-enable these once Fabric Loom supports MC 26.x mappings.
           - mc-profile: mc26
             java-version: 25
           - mc-profile: mc26_1
@@ -51,32 +55,28 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v6
+
+    - name: Validate Gradle wrapper
+      uses: gradle/actions/wrapper-validation@v4
       
     - name: Set up JDK ${{ matrix.java-version }}
       uses: actions/setup-java@v5
       with:
         java-version: ${{ matrix.java-version }}
         distribution: 'temurin'
-        
-    - name: Cache Gradle packages
-      uses: actions/cache@v5
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+        cache: gradle
           
     - name: Grant execute permission for gradlew
       run: chmod +x screenshotmetadata/gradlew
       
     - name: Build with Gradle (${{ matrix.mc-profile }})
-      run: cd screenshotmetadata && ./gradlew clean build -PmcProfile=${{ matrix.mc-profile }} --no-configuration-cache
+      working-directory: screenshotmetadata
+      run: ./gradlew build -PmcProfile=${{ matrix.mc-profile }} --no-daemon
 
     - name: Publish to Modrinth and CurseForge (${{ matrix.mc-profile }})
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: cd screenshotmetadata && ./gradlew publishMods -PmcProfile=${{ matrix.mc-profile }} --no-configuration-cache
+      working-directory: screenshotmetadata
+      run: ./gradlew publishMods -PmcProfile=${{ matrix.mc-profile }} --no-daemon
       env:
         MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
         CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
@@ -86,12 +86,15 @@ jobs:
       if: success()
       with:
         name: build-artifacts-java-${{ matrix.java-version }}-${{ matrix.mc-profile }}
+        retention-days: 14
         path: |
           screenshotmetadata/build/libs/*.jar
-          screenshotmetadata/build/reports/
-          
-    - name: Check for build failures
-      if: failure()
-      run: |
-        echo "Build failed! Check the logs above for details."
-        exit 1
+
+    - name: Upload build reports
+      uses: actions/upload-artifact@v7
+      if: always()
+      with:
+        name: build-reports-java-${{ matrix.java-version }}-${{ matrix.mc-profile }}
+        retention-days: 14
+        if-no-files-found: ignore
+        path: screenshotmetadata/build/reports/
