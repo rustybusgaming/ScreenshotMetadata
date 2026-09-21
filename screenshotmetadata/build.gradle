@@ -1,13 +1,18 @@
 import java.util.Locale
 
 plugins {
-	id 'fabric-loom' version '1.16-SNAPSHOT'
+	// Two Loom plugin ids ship in the same artifact: 'fabric-loom' remaps against
+	// Yarn/Mojang mappings, 'net.fabricmc.fabric-loom' skips remapping entirely for
+	// Minecraft versions that ship deobfuscated. The profile decides which is applied.
+	id 'fabric-loom' version '1.18.2' apply false
+	id 'net.fabricmc.fabric-loom' version '1.18.2' apply false
 	id 'maven-publish'
 	id "org.jetbrains.kotlin.jvm" version "2.3.20"
 	id 'me.modmuss50.mod-publish-plugin' version '2.1.1'
 }
 
-def supportedProfiles = ["stable", "beta", "mc26", "mc26_1", "mc26_2",
+def supportedProfiles = ["stable", "beta",
+		"mc26_1", "mc26_1_1", "mc26_1_2", "mc26_2", "mc26_3",
 		"mc1_21_1", "mc1_21_2", "mc1_21_3", "mc1_21_4", "mc1_21_5",
 		"mc1_21_6", "mc1_21_7", "mc1_21_8", "mc1_21_9", "mc1_21_10"]
 def mcProfile = providers.gradleProperty("mcProfile")
@@ -29,6 +34,12 @@ def profileValue = { String key ->
 def minecraftVersion = profileValue("minecraft_version")
 def mappingsChannel = project.findProperty("${mcProfile}_mappings_channel")?.toString()?.toLowerCase(Locale.ROOT) ?: "yarn"
 def yarnMappings = mappingsChannel == "yarn" ? profileValue("yarn_mappings") : null
+
+// Minecraft 26 and newer ship deobfuscated, so there are no mappings to apply and
+// nothing to remap: the game, the mod and its dependencies all share one namespace.
+def isDeobfuscatedGame = mappingsChannel == "none"
+
+apply plugin: isDeobfuscatedGame ? 'net.fabricmc.fabric-loom' : 'fabric-loom'
 def fabricVersion = profileValue("fabric_version")
 def isBetaProfile = mcProfile == "beta"
 def publishTypeName = profileValue("publish_type").toLowerCase(Locale.ROOT)
@@ -40,6 +51,17 @@ def artifactMinecraftLabel = minecraftVersion.replaceAll("[^0-9A-Za-z._-]", "-")
 
 version = project.mod_version
 group = project.maven_group
+
+// The metadata writers are plain Java and shared by every profile. The two classes
+// that touch Minecraft itself exist twice: once against Yarn names (1.21.x and the
+// snapshot line) and once against the deobfuscated names used from 26 onwards.
+sourceSets {
+	main {
+		java {
+			srcDirs = ['src/main/java', isDeobfuscatedGame ? 'src/mojang/java' : 'src/yarn/java']
+		}
+	}
+}
 
 base {
 	archivesName = "${project.archives_base_name}-mc${artifactMinecraftLabel}"
@@ -63,38 +85,58 @@ dependencies {
 		mappings loom.officialMojangMappings()
 	} else if (mappingsChannel == "yarn") {
 		mappings "net.fabricmc:yarn:${yarnMappings}:v2"
-	} else {
-		throw new GradleException("Unknown mappings channel '${mappingsChannel}' for profile '${mcProfile}'. Supported: yarn, official")
+	} else if (mappingsChannel != "none") {
+		throw new GradleException("Unknown mappings channel '${mappingsChannel}' for profile '${mcProfile}'. Supported: yarn, official, none")
 	}
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Without remapping there are no mod* configurations; dependencies are consumed as-is.
+	def modCompile = isDeobfuscatedGame ? "implementation" : "modImplementation"
+	def modCompileOnlyConf = isDeobfuscatedGame ? "compileOnly" : "modCompileOnly"
+	def modRuntimeConf = isDeobfuscatedGame ? "localRuntime" : "modLocalRuntime"
+
+	add(modCompile, "net.fabricmc:fabric-loader:${project.loader_version}")
 
 	if (isBetaProfile) {
-		modImplementation "net.fabricmc.fabric-api:fabric-key-binding-api-v1:${profileValue("fabric_key_binding_api_version")}"
+		add(modCompile, "net.fabricmc.fabric-api:fabric-key-binding-api-v1:${profileValue("fabric_key_binding_api_version")}")
 	} else {
-		modImplementation "net.fabricmc.fabric-api:fabric-api:${fabricVersion}"
+		add(modCompile, "net.fabricmc.fabric-api:fabric-api:${fabricVersion}")
 	}
 
-	modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
+	add(modCompile, "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}")
 	def modmenuVersion = project.findProperty("${mcProfile}_modmenu_version")?.toString() ?: project.modmenu_version
-	modCompileOnly "com.terraformersmc:modmenu:${modmenuVersion}"
-	modLocalRuntime "com.terraformersmc:modmenu:${modmenuVersion}"
+	add(modCompileOnlyConf, "com.terraformersmc:modmenu:${modmenuVersion}")
+	add(modRuntimeConf, "com.terraformersmc:modmenu:${modmenuVersion}")
 }
+
+// Minecraft 26 and the snapshots leading up to it run on Java 25.
+def isMc26 = isDeobfuscatedGame || mcProfile == "beta"
+def targetJavaVersion = isMc26 ? 25 : 21
 
 processResources {
 	def modVersion = version.toString()
 	inputs.property "version", modVersion
 	inputs.property "minecraft_dependency", minecraftDependency
+	inputs.property "java_dependency", targetJavaVersion
+	inputs.property "mixin_compatibility_level", targetJavaVersion
+	// The mixin targets ScreenshotRecorder on Yarn and Screenshot on the deobfuscated game.
+	def screenshotMixinClass = isDeobfuscatedGame ? "ScreenshotMixin" : "ScreenshotRecorderMixin"
+	inputs.property "screenshot_mixin_class", screenshotMixinClass
 
 	filesMatching("fabric.mod.json") {
 		expand(
 				version: modVersion,
-				minecraft_dependency: minecraftDependency
+				minecraft_dependency: minecraftDependency,
+				java_dependency: targetJavaVersion
+		)
+	}
+
+	filesMatching("screenshotmetadata.mixins.json") {
+		expand(
+				mixin_compatibility_level: "JAVA_${targetJavaVersion}",
+				screenshot_mixin_class: screenshotMixinClass
 		)
 	}
 }
-
-def isMc26 = mcProfile.startsWith("mc26") || mcProfile == "beta"
-def targetJavaVersion = isMc26 ? 25 : 21
 
 tasks.withType(JavaCompile).configureEach {
 	it.options.release = targetJavaVersion
@@ -128,7 +170,8 @@ def changelogFile = file("CHANGELOG.md").exists() ? file("CHANGELOG.md") : file(
 
 publishMods {
 	displayName = "Screenshot Metadata v${project.version} (MC ${minecraftVersion})"
-	file = remapJar.archiveFile
+	// Nothing is remapped for a deobfuscated game, so 'jar' is already the shippable artifact.
+	file = tasks.named(isDeobfuscatedGame ? "jar" : "remapJar", AbstractArchiveTask).flatMap { it.archiveFile }
 	changelog = changelogFile.exists() ? changelogFile.text : "No changelog provided"
 	type = publishTypeName == "beta" ? BETA : (publishTypeName == "alpha" ? ALPHA : STABLE)
 	modLoaders.add("fabric")

@@ -20,37 +20,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - mc-profile: stable
-            java-version: 21
-          - mc-profile: beta
-            java-version: 25
-          - mc-profile: mc1_21_10
-            java-version: 21
-          - mc-profile: mc1_21_9
-            java-version: 21
-          - mc-profile: mc1_21_8
-            java-version: 21
-          - mc-profile: mc1_21_7
-            java-version: 21
-          - mc-profile: mc1_21_6
-            java-version: 21
-          - mc-profile: mc1_21_5
-            java-version: 21
-          - mc-profile: mc1_21_4
-            java-version: 21
-          - mc-profile: mc1_21_3
-            java-version: 21
-          - mc-profile: mc1_21_2
-            java-version: 21
-          - mc-profile: mc1_21_1
-            java-version: 21
-          - mc-profile: mc26
-            java-version: 25
-          - mc-profile: mc26_1
-            java-version: 25
-          - mc-profile: mc26_2
-            java-version: 25
+        mc-profile:
+          - stable
+          - beta
+          - mc1_21_10
+          - mc1_21_9
+          - mc1_21_8
+          - mc1_21_7
+          - mc1_21_6
+          - mc1_21_5
+          - mc1_21_4
+          - mc1_21_3
+          - mc1_21_2
+          - mc1_21_1
+          - mc26_3
+          - mc26_2
+          - mc26_1_2
+          - mc26_1_1
+          - mc26_1
         
     steps:
     - name: Checkout repository
@@ -59,10 +46,14 @@ jobs:
     - name: Validate Gradle wrapper
       uses: gradle/actions/wrapper-validation@v4
       
-    - name: Set up JDK ${{ matrix.java-version }}
+    # Loom itself needs Java 25 to run; the 1.21.x profiles still compile against
+    # a Java 21 toolchain, which Gradle picks up from the second JDK installed here.
+    - name: Set up JDKs
       uses: actions/setup-java@v5
       with:
-        java-version: ${{ matrix.java-version }}
+        java-version: |
+          21
+          25
         distribution: 'temurin'
         cache: gradle
           
@@ -85,7 +76,7 @@ jobs:
       uses: actions/upload-artifact@v7
       if: success()
       with:
-        name: build-artifacts-java-${{ matrix.java-version }}-${{ matrix.mc-profile }}
+        name: build-artifacts-${{ matrix.mc-profile }}
         retention-days: 14
         path: |
           screenshotmetadata/build/libs/*.jar
@@ -94,7 +85,7 @@ jobs:
       uses: actions/upload-artifact@v7
       if: always()
       with:
-        name: build-reports-java-${{ matrix.java-version }}-${{ matrix.mc-profile }}
+        name: build-reports-${{ matrix.mc-profile }}
         retention-days: 14
         if-no-files-found: ignore
         path: screenshotmetadata/build/reports/

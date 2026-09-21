@@ -24,7 +24,33 @@ All notable changes to the Screenshot Metadata Mod are documented here. This cha
 
 ## [Unreleased]
 
-- No unreleased changes yet.
+### Added
+- Build and publish support for Minecraft 26.1.2, 26.2 and 26.3:
+  - 26.1.2 — Fabric API 0.155.3, ModMenu 18.0.1
+  - 26.2 — Fabric API 0.161.0, ModMenu 20.0.2
+  - 26.3 — Fabric API 0.161.0, ModMenu 21.0.0-beta.1
+- A second set of sources under `src/mojang/java` targeting the names used by the
+  deobfuscated Minecraft 26 client, alongside the existing Yarn-named sources in
+  `src/yarn/java`. The metadata writers stay shared in `src/main/java`.
+
+### Changed
+- Minecraft 26 ships deobfuscated, and neither Yarn nor Mojang publish mappings for
+  it, so the 26.x profiles now build with Loom's no-remap plugin
+  (`net.fabricmc.fabric-loom`) and a `mappings_channel=none` setting instead of
+  referencing Yarn mappings that do not exist.
+- Renamed the 26.x build profiles so each one matches its Minecraft version, in line
+  with the `mc1_21_*` naming: `mc26` is now `mc26_1` (26.1), the old `mc26_1` is now
+  `mc26_1_1` (26.1.1), and the old `mc26_2` is now `mc26_1_2` (26.1.2). `mc26_2` and
+  `mc26_3` now mean 26.2 and 26.3.
+- Corrected the Fabric API versions recorded for the 26.1.x profiles; the previous
+  values were not published for those Minecraft versions.
+- Updated Gradle to 9.7.1 and Fabric Loom to 1.18.2, which are required for the
+  Minecraft 26 toolchain. Loom now needs Java 25 to run, so CI installs both JDK 21
+  (for the 1.21.x compile toolchain) and JDK 25.
+
+### Fixed
+- Dropped the `refmap` entry from the mixin config; Loom 1.18 remaps mixins at build
+  time and no longer produces the refmap file the config pointed at.
 
 ## [1.2.0] - 2026-02-13
 

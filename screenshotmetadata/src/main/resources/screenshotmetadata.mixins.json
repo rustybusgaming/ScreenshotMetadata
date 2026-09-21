@@ -2,11 +2,10 @@
   "required": true,
   "minVersion": "0.8",
   "package": "com.fentbuscoding.screenshotmetadata.mixin",
-  "compatibilityLevel": "JAVA_21",
-  "refmap": "screenshotmetadata.refmap.json",
+  "compatibilityLevel": "${mixin_compatibility_level}",
   "mixins": [],
   "client": [
-    "ScreenshotRecorderMixin"
+    "${screenshot_mixin_class}"
   ],
   "injectors": {
     "defaultRequire": 1
