@@ -7,8 +7,8 @@ plugins {
 	id 'fabric-loom' version '1.18.2' apply false
 	id 'net.fabricmc.fabric-loom' version '1.18.2' apply false
 	id 'maven-publish'
-	id "org.jetbrains.kotlin.jvm" version "2.3.20"
-	id 'me.modmuss50.mod-publish-plugin' version '2.1.1'
+	id "org.jetbrains.kotlin.jvm" version "2.4.20"
+	id 'me.modmuss50.mod-publish-plugin' version '2.2.1'
 }
 
 def supportedProfiles = ["stable", "beta",
@@ -47,6 +47,7 @@ def curseforgeMinecraftVersion = project.findProperty("${mcProfile}_curseforge_m
 def modrinthMinecraftVersion = project.findProperty("${mcProfile}_modrinth_minecraft_version")?.toString() ?: minecraftVersion
 def releaseVersionPattern = ~/^\d+\.\d+(\.\d+)?$/
 def minecraftDependency = (minecraftVersion ==~ releaseVersionPattern) ? "~${minecraftVersion}" : minecraftVersion
+def loaderDependency = project.findProperty("${mcProfile}_loader_dependency")?.toString() ?: project.loader_dependency.toString()
 def artifactMinecraftLabel = minecraftVersion.replaceAll("[^0-9A-Za-z._-]", "-")
 
 version = project.mod_version
@@ -116,6 +117,7 @@ processResources {
 	def modVersion = version.toString()
 	inputs.property "version", modVersion
 	inputs.property "minecraft_dependency", minecraftDependency
+	inputs.property "loader_dependency", loaderDependency
 	inputs.property "java_dependency", targetJavaVersion
 	inputs.property "mixin_compatibility_level", targetJavaVersion
 	// The mixin targets ScreenshotRecorder on Yarn and Screenshot on the deobfuscated game.
@@ -126,6 +128,7 @@ processResources {
 		expand(
 				version: modVersion,
 				minecraft_dependency: minecraftDependency,
+				loader_dependency: loaderDependency,
 				java_dependency: targetJavaVersion
 		)
 	}

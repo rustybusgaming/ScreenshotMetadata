@@ -47,7 +47,9 @@ When you take a screenshot, the mod creates:
 
 ### Requirements
 - Minecraft 1.21.1 - 1.21.11, or 26.1 - 26.3
-- Fabric Loader 0.18.4 or newer
+- Fabric Loader — the minimum depends on your Minecraft version, and the jar
+  declares it: 0.19.3+ for 26.3, 0.18.4+ for 26.1 - 26.2, 0.17.3+ for 1.21.11,
+  0.16.0+ for the older 1.21.x builds
 - Fabric API
 - Java 21 or newer (Java 25 for the Minecraft 26 builds)
 
