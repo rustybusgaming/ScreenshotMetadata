@@ -46,10 +46,15 @@ When you take a screenshot, the mod creates:
 ## Installation
 
 ### Requirements
-- Minecraft 1.21.11
-- Fabric Loader 0.18.4 or newer
+- Minecraft 1.21.1 - 1.21.11, or 26.1 - 26.3
+- Fabric Loader — the minimum depends on your Minecraft version, and the jar
+  declares it: 0.19.3+ for 26.3, 0.18.4+ for 26.1 - 26.2, 0.17.3+ for 1.21.11,
+  0.16.0+ for the older 1.21.x builds
 - Fabric API
-- Java 21 or newer
+- Java 21 or newer (Java 25 for the Minecraft 26 builds)
+
+Download the jar that matches your Minecraft version; each one is named
+`screenshotmetadata-mc<version>-<mod version>.jar`.
 
 ### Setup Steps
 1. Download the mod JAR file
@@ -114,12 +119,30 @@ cd screenshotmetadata
 ./gradlew build -PmcProfile=stable
 ```
 
-### Build Beta Target
+### Build a Specific Minecraft Version
+Every target is a build profile; pass it with `-PmcProfile`:
+
 ```
 cd screenshotmetadata
-./gradlew build -PmcProfile=beta
+./gradlew build -PmcProfile=mc26_3
 ```
-Beta profile targets `25w46a` and uses Yarn mappings `25w46a+build.4` (26.1 snapshot line).
+
+| Profile | Minecraft | Java |
+| --- | --- | --- |
+| `stable` | 1.21.11 | 21 |
+| `mc1_21_1` ... `mc1_21_10` | 1.21.1 - 1.21.10 | 21 |
+| `beta` | 25w46a (26.1 snapshot line) | 25 |
+| `mc26_1`, `mc26_1_1`, `mc26_1_2` | 26.1, 26.1.1, 26.1.2 | 25 |
+| `mc26_2`, `mc26_3` | 26.2, 26.3 | 25 |
+
+Minecraft 26 ships a deobfuscated client, so there are no Yarn or Mojang mappings to
+apply to it. Those profiles set `mappings_channel=none` and build with Loom's
+no-remap plugin, which means the game, the mod and its dependencies all share one
+set of names. Everything up to 1.21.11 still builds against Yarn mappings as before.
+
+Gradle itself has to run on Java 25, because Fabric Loom 1.18 requires it. The
+1.21.x profiles still *compile* against a Java 21 toolchain, so keep a JDK 21
+installed as well and Gradle will find it.
 
 ### Run in Development
 ```
@@ -128,13 +151,19 @@ Beta profile targets `25w46a` and uses Yarn mappings `25w46a+build.4` (26.1 snap
 
 ### Project Structure
 ```
-src/main/java/com/fentbuscoding/screenshotmetadata/
+src/main/java/com/fentbuscoding/screenshotmetadata/   (shared by every profile)
 - ScreenshotMetadataMod.java: Main mod initialization
 - config/: Configuration management
 - metadata/: Metadata writers (PNG, XMP, JSON)
+
+src/yarn/java/...   (used by the 1.21.x and snapshot profiles)
+src/mojang/java/... (used by the Minecraft 26 profiles)
 - mixin/: Minecraft interception hooks
 - compat/: Mod compatibility (ModMenu integration)
 ```
+The two classes that touch Minecraft directly exist once per naming scheme, because
+Yarn and the deobfuscated 26 client name the same APIs differently. A change to
+either one usually needs the same change in the other.
 
 ## License
 

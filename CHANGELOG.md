@@ -22,9 +22,57 @@ All notable changes to the Screenshot Metadata Mod are documented here. This cha
 ### Fixed
 - Resolved intermittent HTTP 400 errors when resolving ModMenu from the TerraformersMC Maven repository by restricting Gradle to Maven POM metadata only (the server does not serve Gradle module metadata files)
 
-## [Unreleased]
+## [1.4.0] - 2026-10-03
 
-- No unreleased changes yet.
+### Added
+- Build and publish support for Minecraft 26.1.2, 26.2 and 26.3:
+  - 26.1.2 — Fabric API 0.155.3, ModMenu 18.0.2
+  - 26.2 — Fabric API 0.161.0, ModMenu 20.0.3
+  - 26.3 — Fabric API 0.161.0, ModMenu 21.0.0-beta.1
+- A second set of sources under `src/mojang/java` targeting the names used by the
+  deobfuscated Minecraft 26 client, alongside the existing Yarn-named sources in
+  `src/yarn/java`. The metadata writers stay shared in `src/main/java`.
+
+### Changed
+- Minecraft 26 ships deobfuscated, and neither Yarn nor Mojang publish mappings for
+  it, so the 26.x profiles now build with Loom's no-remap plugin
+  (`net.fabricmc.fabric-loom`) and a `mappings_channel=none` setting instead of
+  referencing Yarn mappings that do not exist.
+- Renamed the 26.x build profiles so each one matches its Minecraft version, in line
+  with the `mc1_21_*` naming: `mc26` is now `mc26_1` (26.1), the old `mc26_1` is now
+  `mc26_1_1` (26.1.1), and the old `mc26_2` is now `mc26_1_2` (26.1.2). `mc26_2` and
+  `mc26_3` now mean 26.2 and 26.3.
+- Corrected the Fabric API versions recorded for the 26.1.x profiles; the previous
+  values were not published for those Minecraft versions.
+- Updated Gradle to 9.7.1 and Fabric Loom to 1.18.2, which are required for the
+  Minecraft 26 toolchain. Loom now needs Java 25 to run, so CI installs both JDK 21
+  (for the 1.21.x compile toolchain) and JDK 25.
+
+- `fabric.mod.json` now declares a per-version minimum Fabric Loader instead of a
+  flat `>=0.16.0`, so an out-of-date loader gives a clear message rather than a
+  confusing Fabric API error: `>=0.19.3` on 26.3, `>=0.18.4` on 26.1-26.2,
+  `>=0.17.3` on 1.21.11.
+
+### Changed
+- Updated dependencies: Fabric Loader 0.19.5, Fabric Language Kotlin
+  1.14.1+kotlin.2.4.20, Kotlin plugin 2.4.20, mod-publish-plugin 2.2.1, Yarn
+  1.21.11+build.6, Fabric API 0.141.6 (1.21.11) and 0.116.17 (1.21.1), and ModMenu
+  11.0.5 / 17.0.1-beta.1 / 18.0.2 / 20.0.3 on the lines that had newer builds.
+- Updated GitHub Actions: checkout v7, setup-java v6, cache v6,
+  gradle/actions/wrapper-validation v6, action-gh-release v3.
+- The release and publish workflows now cover all 17 build profiles. Previously a
+  tagged release shipped no 1.21.x jars and published only 7 of the 17 targets.
+
+### Fixed
+- Dropped the `refmap` entry from the mixin config; Loom 1.18 remaps mixins at build
+  time and no longer produces the refmap file the config pointed at.
+- Removed the publish step from the build workflow. Every push to `main` uploaded
+  every profile to Modrinth and CurseForge, which both duplicated the release
+  workflows and published straight off `main`. Publishing now happens on a tag:
+  `release.yml` builds and creates the GitHub Release, and `publish.yml` uploads to
+  Modrinth and CurseForge when that release is published.
+- Removed the unused `loom_version` property, which was never read; `build.gradle`
+  pins the Loom plugin directly.
 
 ## [1.2.0] - 2026-02-13
 

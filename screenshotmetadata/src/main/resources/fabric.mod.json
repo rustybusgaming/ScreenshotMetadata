@@ -16,10 +16,10 @@
     "modmenu": ["com.fentbuscoding.screenshotmetadata.compat.ModMenuIntegration"]
   },
   "depends": {
-    "fabricloader": ">=0.16.0",
+    "fabricloader": "${loader_dependency}",
     "fabric-api": "*",
     "minecraft": "${minecraft_dependency}",
-    "java": ">=21"
+    "java": ">=${java_dependency}"
   },
   "suggests": {
     "modmenu": "*"

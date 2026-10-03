@@ -14,14 +14,33 @@ on:
           - all
           - stable
           - beta
-          - mc26
+          - mc1_21_1
+          - mc1_21_2
+          - mc1_21_3
+          - mc1_21_4
+          - mc1_21_5
+          - mc1_21_6
+          - mc1_21_7
+          - mc1_21_8
+          - mc1_21_9
+          - mc1_21_10
           - mc26_1
+          - mc26_1_1
+          - mc26_1_2
           - mc26_2
+          - mc26_3
       version:
         description: 'Version to publish (optional override for mod_version)'
         required: false
         default: ''
         type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -29,30 +48,41 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - mc-profile: stable
-            java-version: 21
-          - mc-profile: beta
-            java-version: 25
-          - mc-profile: mc26
-            java-version: 25
-          - mc-profile: mc26_1
-            java-version: 25
-          - mc-profile: mc26_2
-            java-version: 25
+        mc-profile:
+          - stable
+          - beta
+          - mc1_21_1
+          - mc1_21_2
+          - mc1_21_3
+          - mc1_21_4
+          - mc1_21_5
+          - mc1_21_6
+          - mc1_21_7
+          - mc1_21_8
+          - mc1_21_9
+          - mc1_21_10
+          - mc26_1
+          - mc26_1_1
+          - mc26_1_2
+          - mc26_2
+          - mc26_3
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       
-    - name: Set up JDK ${{ matrix.java-version }}
-      uses: actions/setup-java@v5
+    # Loom itself needs Java 25 to run; the 1.21.x profiles still compile against
+    # a Java 21 toolchain, which Gradle picks up from the second JDK installed here.
+    - name: Set up JDKs
+      uses: actions/setup-java@v6
       with:
-        java-version: ${{ matrix.java-version }}
+        java-version: |
+          21
+          25
         distribution: 'temurin'
         
     - name: Cache Gradle packages
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: |
           ~/.gradle/caches
