@@ -22,6 +22,19 @@ All notable changes to the Screenshot Metadata Mod are documented here. This cha
 ### Fixed
 - Resolved intermittent HTTP 400 errors when resolving ModMenu from the TerraformersMC Maven repository by restricting Gradle to Maven POM metadata only (the server does not serve Gradle module metadata files)
 
+## [1.4.2] - 2026-10-04
+
+### Fixed
+- Publishing failed for every profile with "At least one of client or server must be
+  set to true". mod-publish-plugin 2.2 requires the CurseForge block to declare which
+  side the mod runs on, which 2.1 did not; the 2.2.1 bump in 1.4.1 therefore broke
+  publishing. The CurseForge block now sets `client = true` / `server = false` and the
+  Modrinth block sets `environment = CLIENT_ONLY`, matching the `"environment":
+  "client"` already declared in `fabric.mod.json`.
+
+  CurseForge publishes before Modrinth, so this aborted the run before Modrinth was
+  ever contacted.
+
 ## [1.4.1] - 2026-10-04
 
 ### Fixed

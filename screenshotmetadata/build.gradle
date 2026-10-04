@@ -183,6 +183,10 @@ publishMods {
 		projectId = project.curseforge_id
 		accessToken = providers.environmentVariable("CURSEFORGE_TOKEN")
 		minecraftVersions.add(curseforgeMinecraftVersion)
+		// fabric.mod.json declares environment "client"; mod-publish-plugin 2.2
+		// refuses to publish unless one of these is set.
+		client = true
+		server = false
 
 		requires {
 			slug = "fabric-api"
@@ -197,6 +201,7 @@ publishMods {
 		projectId = project.modrinth_id
 		accessToken = providers.environmentVariable("MODRINTH_TOKEN")
 		minecraftVersions.add(modrinthMinecraftVersion)
+		environment = CLIENT_ONLY
 
 		requires {
 			slug = "fabric-api"
