@@ -1,8 +1,9 @@
 name: Publish Mod
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       profile:
@@ -43,7 +44,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check-secrets:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Verify publishing tokens are present
+      env:
+        CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+        MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+      run: |
+        missing=""
+        [ -z "$CURSEFORGE_TOKEN" ] && missing="$missing CURSEFORGE_TOKEN"
+        [ -z "$MODRINTH_TOKEN" ] && missing="$missing MODRINTH_TOKEN"
+        if [ -n "$missing" ]; then
+          echo "::error::Missing repository secret(s):$missing - nothing would be published."
+          exit 1
+        fi
+        echo "Both publishing tokens are set."
+
   publish:
+    needs: check-secrets
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -152,7 +171,7 @@ jobs:
         ./gradlew clean build -PmcProfile=${{ matrix.mc-profile }} $EXTRA_VERSION_ARG $EXTRA_BETA_ARGS --no-configuration-cache
       
     - name: Publish to CurseForge and Modrinth (${{ matrix.mc-profile }})
-      if: (github.event_name != 'workflow_dispatch' || github.event.inputs.profile == 'all' || github.event.inputs.profile == matrix.mc-profile) && env.CURSEFORGE_TOKEN != '' && env.MODRINTH_TOKEN != ''
+      if: github.event_name != 'workflow_dispatch' || github.event.inputs.profile == 'all' || github.event.inputs.profile == matrix.mc-profile
       run: |
         EXTRA_VERSION_ARG=""
         if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then

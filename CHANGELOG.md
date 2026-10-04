@@ -22,6 +22,18 @@ All notable changes to the Screenshot Metadata Mod are documented here. This cha
 ### Fixed
 - Resolved intermittent HTTP 400 errors when resolving ModMenu from the TerraformersMC Maven repository by restricting Gradle to Maven POM metadata only (the server does not serve Gradle module metadata files)
 
+## [1.4.1] - 2026-10-04
+
+### Fixed
+- The publish workflow never ran for 1.4.0, so nothing reached Modrinth or
+  CurseForge. It triggered on `release: published`, but the release is created by
+  the release workflow using `GITHUB_TOKEN`, and GitHub does not let a
+  `GITHUB_TOKEN`-triggered event start another workflow. Publishing now triggers on
+  the `v*.*.*` tag itself, the same event the release workflow uses.
+- A missing or empty `MODRINTH_TOKEN` or `CURSEFORGE_TOKEN` used to skip the upload
+  step and leave the job green, so a release could publish nothing without failing.
+  The workflow now checks both secrets up front and fails with a clear error.
+
 ## [1.4.0] - 2026-10-03
 
 ### Added
