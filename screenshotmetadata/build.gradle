@@ -41,7 +41,6 @@ def isDeobfuscatedGame = mappingsChannel == "none"
 
 apply plugin: isDeobfuscatedGame ? 'net.fabricmc.fabric-loom' : 'fabric-loom'
 def fabricVersion = profileValue("fabric_version")
-def isBetaProfile = mcProfile == "beta"
 def publishTypeName = profileValue("publish_type").toLowerCase(Locale.ROOT)
 def curseforgeMinecraftVersion = project.findProperty("${mcProfile}_curseforge_minecraft_version")?.toString() ?: minecraftVersion
 def modrinthMinecraftVersion = project.findProperty("${mcProfile}_modrinth_minecraft_version")?.toString() ?: minecraftVersion
@@ -49,18 +48,30 @@ def releaseVersionPattern = ~/^\d+\.\d+(\.\d+)?$/
 def minecraftDependency = (minecraftVersion ==~ releaseVersionPattern) ? "~${minecraftVersion}" : minecraftVersion
 def loaderDependency = project.findProperty("${mcProfile}_loader_dependency")?.toString() ?: project.loader_dependency.toString()
 def artifactMinecraftLabel = minecraftVersion.replaceAll("[^0-9A-Za-z._-]", "-")
+// CurseForge only accepts Minecraft versions it already lists, and it adds new
+// snapshots long after Modrinth does, so a profile can opt out of it.
+def publishToCurseforge = (project.findProperty("${mcProfile}_publish_curseforge")?.toString() ?: "true").toBoolean()
 
 version = project.mod_version
 group = project.maven_group
 
 // The metadata writers are plain Java and shared by every profile (and by the
-// NeoForge, Babric and BTA builds). src/fabric holds the Fabric Loader glue. The two
-// classes that touch Minecraft itself exist twice: once against Yarn names (1.21.x
-// and the snapshot line) and once against the deobfuscated names used from 26 onwards.
+// NeoForge, Babric and BTA builds). src/fabric holds the Fabric Loader glue. The
+// classes that touch Minecraft itself are split by naming scheme: Yarn names for
+// 1.21.x (src/yarn), and the deobfuscated names used from 26 onwards (src/mojang,
+// plus src/mojang26 for the calls whose names differ from 1.21.x).
+//
+// The config screen is split once more. Minecraft 26.4 dropped the mouse and delta
+// arguments from Screen's render hooks, so one file cannot compile against both 26.3
+// and 26.4; a profile picks its generation with <profile>_screen_api. The mixin is
+// unaffected and stays shared across every 26.x target.
+def screenApi = project.findProperty("${mcProfile}_screen_api")?.toString() ?: "26_3"
 sourceSets {
 	main {
 		java {
-			srcDirs = ['src/main/java', 'src/fabric/java'] + (isDeobfuscatedGame ? ['src/mojang/java', 'src/mojang26/java'] : ['src/yarn/java'])
+			srcDirs = ['src/main/java', 'src/fabric/java'] + (isDeobfuscatedGame
+					? ['src/mojang/java', 'src/mojang26/java', "src/mojang_screen_${screenApi}/java"]
+					: ['src/yarn/java'])
 		}
 		resources {
 			srcDirs = ['src/main/resources', 'src/fabric/resources']
@@ -101,11 +112,7 @@ dependencies {
 
 	add(modCompile, "net.fabricmc:fabric-loader:${project.loader_version}")
 
-	if (isBetaProfile) {
-		add(modCompile, "net.fabricmc.fabric-api:fabric-key-binding-api-v1:${profileValue("fabric_key_binding_api_version")}")
-	} else {
-		add(modCompile, "net.fabricmc.fabric-api:fabric-api:${fabricVersion}")
-	}
+	add(modCompile, "net.fabricmc.fabric-api:fabric-api:${fabricVersion}")
 
 	add(modCompile, "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}")
 	def modmenuVersion = project.findProperty("${mcProfile}_modmenu_version")?.toString() ?: project.modmenu_version
@@ -113,9 +120,9 @@ dependencies {
 	add(modRuntimeConf, "com.terraformersmc:modmenu:${modmenuVersion}")
 }
 
-// Minecraft 26 and the snapshots leading up to it run on Java 25.
-def isMc26 = isDeobfuscatedGame || mcProfile == "beta"
-def targetJavaVersion = isMc26 ? 25 : 21
+// Minecraft 26 and its snapshots run on Java 25; they are exactly the
+// deobfuscated targets, so the mappings channel already tells us.
+def targetJavaVersion = isDeobfuscatedGame ? 25 : 21
 
 processResources {
 	def modVersion = version.toString()
@@ -186,7 +193,7 @@ publishMods {
 	// which meets every profile's minimum), so the same jar is listed for Quilt.
 	modLoaders.add("quilt")
 
-	curseforge {
+	if (publishToCurseforge) curseforge {
 		projectId = project.curseforge_id
 		accessToken = providers.environmentVariable("CURSEFORGE_TOKEN")
 		minecraftVersions.add(curseforgeMinecraftVersion)
