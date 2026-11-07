@@ -1,22 +1,14 @@
 package com.fentbuscoding.screenshotmetadata.metadata;
 
 import com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod;
-import javax.imageio.IIOImage;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageTypeSpecifier;
-import javax.imageio.ImageWriteParam;
-import javax.imageio.ImageWriter;
-import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.metadata.IIOMetadataNode;
-import javax.imageio.stream.ImageOutputStream;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.Iterator;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import org.w3c.dom.Node;
 
 /**
  * Handles writing metadata to PNG files using ImageIO's text chunks.
@@ -46,69 +38,17 @@ public class PngMetadataWriter {
 
         ScreenshotMetadataMod.LOGGER.debug("Writing PNG metadata to: {} ({} entries)", file.getName(), metadata.size());
 
-        Path tempPath = Files.createTempFile(file.getParentFile().toPath(), file.getName(), ".tmp");
-        boolean moved = false;
-
-        ImageWriter writer = null;
         try {
-            BufferedImage image = ImageIO.read(file);
-            if (image == null) {
-                throw new IOException("Could not read image data from: " + file.getName());
-            }
-
-            Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("png");
-            if (!writers.hasNext()) {
-                throw new IOException("No PNG writer available");
-            }
-            writer = writers.next();
-
-            ImageWriteParam writeParam = writer.getDefaultWriteParam();
-            IIOMetadata meta = writer.getDefaultImageMetadata(new ImageTypeSpecifier(image), writeParam);
-            String nativeFormat = meta.getNativeMetadataFormatName();
-
-            if (nativeFormat == null || nativeFormat.isBlank()) {
-                throw new IOException("PNG metadata format is unavailable");
-            }
-
-            boolean merged = mergeTextMetadata(meta, nativeFormat, metadata, true);
-            if (!merged) {
-                // Recreate metadata before fallback; failed merge calls can leave metadata in a bad state.
-                meta = writer.getDefaultImageMetadata(new ImageTypeSpecifier(image), writeParam);
-                nativeFormat = meta.getNativeMetadataFormatName();
-                if (nativeFormat == null || nativeFormat.isBlank() ||
-                    !mergeTextMetadata(meta, nativeFormat, metadata, false)) {
-                    throw new IOException("Could not merge PNG metadata");
-                }
-            }
-
-            try (ImageOutputStream output = ImageIO.createImageOutputStream(tempPath.toFile())) {
-                writer.setOutput(output);
-                writer.write(null, new IIOImage(image, null, meta), writeParam);
-            }
-
-            // Replace original file with the updated one, prefer atomic move when supported
-            try {
-                Files.move(tempPath, file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException atomicFailure) {
-                Files.move(tempPath, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            }
-            moved = true;
-
+            // Keep the chunks already in the file (an embedded XMP packet, colour
+            // information, ...) and replace only the entries this writer owns.
+            // iTXt first for full Unicode; plain tEXt as a fallback.
+            PngFileRewriter.rewrite(file, "PNG text metadata", List.of(
+                root -> mergeTextMetadata(root, metadata, true),
+                root -> mergeTextMetadata(root, metadata, false)));
         } catch (Exception e) {
             String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             ScreenshotMetadataMod.LOGGER.debug("Failed to write PNG metadata to {}: {}", file.getName(), reason, e);
             throw new IOException("Failed to write PNG metadata: " + reason, e);
-        } finally {
-            if (writer != null) {
-                writer.dispose();
-            }
-            if (!moved) {
-                try {
-                    Files.deleteIfExists(tempPath);
-                } catch (IOException cleanupFailure) {
-                    ScreenshotMetadataMod.LOGGER.warn("Could not delete temp file {}: {}", tempPath, cleanupFailure.getMessage());
-                }
-            }
         }
 
         ScreenshotMetadataMod.LOGGER.debug("Successfully wrote PNG metadata to: {}", file.getName());
@@ -166,30 +106,37 @@ public class PngMetadataWriter {
         }
     }
 
-    private static boolean mergeTextMetadata(IIOMetadata meta,
-                                             String nativeFormat,
+    private static boolean mergeTextMetadata(IIOMetadataNode root,
                                              Map<String, String> metadata,
                                              boolean useITXt) {
-        try {
-            IIOMetadataNode root = (IIOMetadataNode) meta.getAsTree(nativeFormat);
-            IIOMetadataNode textNode = new IIOMetadataNode(useITXt ? "iTXt" : "tEXt");
+        IIOMetadataNode textNode = new IIOMetadataNode(useITXt ? "iTXt" : "tEXt");
 
-            // Embed user-provided entries
-            for (Map.Entry<String, String> entry : metadata.entrySet()) {
-                if (entry.getKey() != null && entry.getValue() != null) {
-                    addTextEntry(textNode, entry.getKey(), entry.getValue(), useITXt);
-                }
+        // Embed user-provided entries
+        for (Map.Entry<String, String> entry : metadata.entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null
+                    && !PngFileRewriter.XMP_ITXT_KEYWORD.equals(entry.getKey())) {
+                addTextEntry(textNode, entry.getKey(), entry.getValue(), useITXt);
             }
-
-            addStandardTextEntries(textNode, metadata, useITXt);
-
-            root.appendChild(textNode);
-            meta.mergeTree(nativeFormat, root);
-            return true;
-        } catch (Exception e) {
-            ScreenshotMetadataMod.LOGGER.debug("PNG metadata merge failed for {} chunks: {}",
-                useITXt ? "iTXt" : "tEXt", e.getMessage());
-            return false;
         }
+
+        addStandardTextEntries(textNode, metadata, useITXt);
+
+        // Replace earlier copies of the keywords written here (from a previous run)
+        // so they are not duplicated; every other entry, the XMP packet included, stays.
+        Set<String> keywords = new HashSet<>();
+        for (Node added = textNode.getFirstChild(); added != null; added = added.getNextSibling()) {
+            keywords.add(((IIOMetadataNode) added).getAttribute("keyword"));
+        }
+        PngFileRewriter.removeTextEntries(root, keywords::contains);
+
+        IIOMetadataNode target = PngFileRewriter.childNode(root, textNode.getNodeName());
+        Node entry = textNode.getFirstChild();
+        while (entry != null) {
+            Node next = entry.getNextSibling();
+            textNode.removeChild(entry);
+            target.appendChild(entry);
+            entry = next;
+        }
+        return true;
     }
 }

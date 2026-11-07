@@ -1,23 +1,12 @@
 package com.fentbuscoding.screenshotmetadata.metadata;
 
 import com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod;
-import javax.imageio.IIOImage;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageTypeSpecifier;
-import javax.imageio.ImageWriteParam;
-import javax.imageio.ImageWriter;
-import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.metadata.IIOMetadataNode;
-import javax.imageio.stream.ImageOutputStream;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -27,7 +16,7 @@ import java.util.Map;
  */
 public class PngXmpWriter {
 
-    private static final String XMP_ITXT_KEYWORD = "XML:com.adobe.xmp";
+    private static final String XMP_ITXT_KEYWORD = PngFileRewriter.XMP_ITXT_KEYWORD;
 
     /**
      * Embeds XMP metadata into a PNG file.
@@ -50,62 +39,15 @@ public class PngXmpWriter {
 
         ScreenshotMetadataMod.LOGGER.debug("Writing embedded XMP to: {} ({} entries)", file.getName(), metadata.size());
 
-        Path tempPath = Files.createTempFile(file.getParentFile().toPath(), file.getName(), ".tmp");
-        boolean moved = false;
-
-        ImageWriter writer = null;
+        String xmpPacket = buildXmpPacket(metadata);
         try {
-            BufferedImage image = ImageIO.read(file);
-            if (image == null) {
-                throw new IOException("Could not read image data from: " + file.getName());
-            }
-
-            Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("png");
-            if (!writers.hasNext()) {
-                throw new IOException("No PNG writer available");
-            }
-            writer = writers.next();
-
-            ImageWriteParam writeParam = writer.getDefaultWriteParam();
-            IIOMetadata meta = writer.getDefaultImageMetadata(new ImageTypeSpecifier(image), writeParam);
-            String nativeFormat = meta.getNativeMetadataFormatName();
-
-            if (nativeFormat == null || nativeFormat.isBlank()) {
-                throw new IOException("PNG metadata format is unavailable");
-            }
-
-            String xmpPacket = buildXmpPacket(metadata);
-            if (!mergeXmpChunk(meta, nativeFormat, xmpPacket)) {
-                throw new IOException("Could not merge XMP iTXt chunk into PNG metadata");
-            }
-
-            try (ImageOutputStream output = ImageIO.createImageOutputStream(tempPath.toFile())) {
-                writer.setOutput(output);
-                writer.write(null, new IIOImage(image, null, meta), writeParam);
-            }
-
-            try {
-                Files.move(tempPath, file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException atomicFailure) {
-                Files.move(tempPath, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            }
-            moved = true;
-
+            // Keep the chunks already in the file (the text entries PngMetadataWriter
+            // wrote, colour information, ...) and replace only the XMP packet.
+            PngFileRewriter.rewrite(file, "XMP iTXt chunk", List.of(root -> mergeXmpChunk(root, xmpPacket)));
         } catch (Exception e) {
             String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             ScreenshotMetadataMod.LOGGER.debug("Failed to write embedded XMP to {}: {}", file.getName(), reason, e);
             throw new IOException("Failed to write embedded XMP: " + reason, e);
-        } finally {
-            if (writer != null) {
-                writer.dispose();
-            }
-            if (!moved) {
-                try {
-                    Files.deleteIfExists(tempPath);
-                } catch (IOException cleanupFailure) {
-                    ScreenshotMetadataMod.LOGGER.warn("Could not delete temp file {}: {}", tempPath, cleanupFailure.getMessage());
-                }
-            }
         }
 
         ScreenshotMetadataMod.LOGGER.debug("Successfully wrote embedded XMP to: {}", file.getName());
@@ -211,29 +153,22 @@ public class PngXmpWriter {
     }
 
     /**
-     * Merges the XMP packet as an iTXt chunk into the PNG metadata tree.
+     * Puts the XMP packet into the PNG metadata tree as an iTXt chunk, replacing
+     * any XMP packet the file already carries so it is never duplicated.
      */
-    private static boolean mergeXmpChunk(IIOMetadata meta, String nativeFormat, String xmpPacket) {
-        try {
-            IIOMetadataNode root = (IIOMetadataNode) meta.getAsTree(nativeFormat);
-            IIOMetadataNode iTXtNode = new IIOMetadataNode("iTXt");
-            IIOMetadataNode entry = new IIOMetadataNode("iTXtEntry");
+    private static boolean mergeXmpChunk(IIOMetadataNode root, String xmpPacket) {
+        PngFileRewriter.removeTextEntries(root, XMP_ITXT_KEYWORD::equals);
 
-            entry.setAttribute("keyword", XMP_ITXT_KEYWORD);
-            entry.setAttribute("compressionFlag", "FALSE");
-            entry.setAttribute("compressionMethod", "0");
-            entry.setAttribute("languageTag", "");
-            entry.setAttribute("translatedKeyword", "");
-            entry.setAttribute("text", xmpPacket);
+        IIOMetadataNode entry = new IIOMetadataNode("iTXtEntry");
+        entry.setAttribute("keyword", XMP_ITXT_KEYWORD);
+        entry.setAttribute("compressionFlag", "FALSE");
+        entry.setAttribute("compressionMethod", "0");
+        entry.setAttribute("languageTag", "");
+        entry.setAttribute("translatedKeyword", "");
+        entry.setAttribute("text", xmpPacket);
 
-            iTXtNode.appendChild(entry);
-            root.appendChild(iTXtNode);
-            meta.mergeTree(nativeFormat, root);
-            return true;
-        } catch (Exception e) {
-            ScreenshotMetadataMod.LOGGER.debug("XMP iTXt merge failed: {}", e.getMessage());
-            return false;
-        }
+        PngFileRewriter.childNode(root, "iTXt").appendChild(entry);
+        return true;
     }
 
     private static String escapeXml(String text) {
