@@ -81,3 +81,45 @@ jobs:
         retention-days: 14
         if-no-files-found: ignore
         path: screenshotmetadata/build/reports/
+
+  # Babric (Beta 1.7.3) and Better than Adventure! use their own Loom setups, so
+  # they are separate Gradle builds rather than mcProfile values.
+  build-legacy:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - babric
+          - bta
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+
+    - name: Validate Gradle wrapper
+      uses: gradle/actions/wrapper-validation@v6
+
+    - name: Set up JDK
+      uses: actions/setup-java@v6
+      with:
+        java-version: 21
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x screenshotmetadata/gradlew
+
+    - name: Build with Gradle (${{ matrix.platform }})
+      working-directory: screenshotmetadata
+      run: ./gradlew -p ${{ matrix.platform }} build --no-daemon
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v7
+      if: success()
+      with:
+        name: build-artifacts-${{ matrix.platform }}
+        retention-days: 14
+        path: |
+          screenshotmetadata/${{ matrix.platform }}/build/libs/*.jar

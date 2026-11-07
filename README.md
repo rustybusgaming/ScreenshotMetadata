@@ -56,6 +56,22 @@ When you take a screenshot, the mod creates:
 Download the jar that matches your Minecraft version; each one is named
 `screenshotmetadata-mc<version>-<mod version>.jar`.
 
+#### Babric (Minecraft Beta 1.7.3)
+- A Babric instance (Fabric Loader 0.16+ on Babric's intermediary), Java 17+
+- Jar: `screenshotmetadata-babric-b1.7.3-<mod version>.jar`
+- No Fabric API or StationAPI needed
+
+#### Better than Adventure!
+- BTA 8.0.1 with the BTA build of Fabric Loader (0.18.4-bta.11+), Java 17+
+- Jar: `screenshotmetadata-bta8.0.1-<mod version>.jar`
+- No Fabric API or HalpLibe needed
+
+Beta 1.7.3 and BTA simply don't have some of the modern data (hunger, potion effects,
+experience, off-hand), so those fields are left out. BTA screenshots additionally
+record the current season and BTA's named weather. Neither build has a Mod Menu
+screen yet: edit `config/screenshotmetadata.json` instead (same settings, same
+profiles).
+
 ### Setup Steps
 1. Download the mod JAR file
 2. Place it in your mods folder (usually .minecraft/mods/)
@@ -135,6 +151,20 @@ cd screenshotmetadata
 | `mc26_1`, `mc26_1_1`, `mc26_1_2` | 26.1, 26.1.1, 26.1.2 | 25 |
 | `mc26_2`, `mc26_3` | 26.2, 26.3 | 25 |
 
+Babric and Better than Adventure! need different Loom setups (Babric's Loom
+extension; BTA's own loader and game manifest), so they are separate Gradle builds
+in their own folders rather than profiles. They share the wrapper and the
+`src/main/java` code, and take `mod_version` from the main `gradle.properties`:
+
+```
+cd screenshotmetadata
+./gradlew -p babric build   # babric/build/libs/
+./gradlew -p bta build      # bta/build/libs/
+./gradlew -p bta runClient  # works for babric too
+```
+
+Both run on Java 21 (Loom 1.17) and target Java 17.
+
 Minecraft 26 ships a deobfuscated client, so there are no Yarn or Mojang mappings to
 apply to it. Those profiles set `mappings_channel=none` and build with Loom's
 no-remap plugin, which means the game, the mod and its dependencies all share one
@@ -160,7 +190,12 @@ src/yarn/java/...   (used by the 1.21.x and snapshot profiles)
 src/mojang/java/... (used by the Minecraft 26 profiles)
 - mixin/: Minecraft interception hooks
 - compat/: Mod compatibility (ModMenu integration)
+
+babric/src/main/... (Babric build: Beta 1.7.3 mixin, fabric.mod.json)
+bta/src/main/...    (Better than Adventure! build: BTA mixin, fabric.mod.json)
 ```
+The Babric and BTA mixins only read the game state; renaming and writing the
+metadata goes through `metadata/LegacyScreenshotSupport.java` in the shared code.
 The two classes that touch Minecraft directly exist once per naming scheme, because
 Yarn and the deobfuscated 26 client name the same APIs differently. A change to
 either one usually needs the same change in the other.

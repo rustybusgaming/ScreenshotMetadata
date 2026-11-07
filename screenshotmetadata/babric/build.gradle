@@ -1,0 +1,81 @@
+plugins {
+	id 'fabric-loom' version '1.17.21'
+	id 'babric-loom-extension' version '1.17.5'
+}
+
+def parentProperties = new Properties()
+file('../gradle.properties').withInputStream { parentProperties.load(it) }
+def modVersion = (findProperty('mod_version') ?: parentProperties.getProperty('mod_version')).toString()
+def archivesBaseName = parentProperties.getProperty('archives_base_name')
+def javaVersion = project.java_version.toString().toInteger()
+
+version = modVersion
+group = parentProperties.getProperty('maven_group')
+
+base {
+	archivesName = "${archivesBaseName}-babric-${project.minecraft_version}"
+}
+
+// The metadata writers and the config are plain Java shared with every other build;
+// only the mixin that reads the game state is Babric-specific.
+sourceSets {
+	main {
+		java {
+			srcDirs = ['../src/main/java', 'src/main/java']
+		}
+	}
+}
+
+repositories {
+	maven { url = 'https://maven.glass-launcher.net/releases/' }
+	maven { url = 'https://maven.glass-launcher.net/babric' }
+	mavenCentral()
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings "net.glasslauncher:biny:${project.biny_mappings}:v2"
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// The Babric instance puts these on the classpath (same versions); they are not bundled.
+	implementation 'org.slf4j:slf4j-api:1.8.0-beta4'
+	implementation 'org.apache.logging.log4j:log4j-slf4j18-impl:2.16.0'
+	implementation 'org.apache.logging.log4j:log4j-core:2.16.0'
+	implementation 'com.google.code.gson:gson:2.8.9'
+}
+
+configurations.configureEach {
+	exclude group: 'babric'
+}
+
+processResources {
+	// Only the shared assets: the parent's fabric.mod.json and mixin config target
+	// modern Minecraft.
+	from('../src/main/resources') {
+		include 'assets/**'
+	}
+	def props = [version: modVersion, java_version: javaVersion]
+	inputs.properties props
+	filesMatching(['fabric.mod.json', 'screenshotmetadata.mixins.json']) {
+		expand props
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+	options.release = javaVersion
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.toVersion(javaVersion)
+	targetCompatibility = JavaVersion.toVersion(javaVersion)
+}
+
+jar {
+	def archName = base.archivesName.get()
+	inputs.property 'archivesName', archName
+	from('../LICENSE.MIT') {
+		rename { "${it}_${archName}" }
+	}
+}

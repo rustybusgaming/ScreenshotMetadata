@@ -1,0 +1,13 @@
+// Babric (Fabric for Minecraft Beta 1.7.3) needs Fabric Loom plus Babric's Loom
+// extension, which cannot share a classpath with the main profile build: run
+// `./gradlew -p babric build` from the screenshotmetadata directory.
+pluginManagement {
+	repositories {
+		maven { url = 'https://maven.fabricmc.net/' }
+		maven { url = 'https://maven.glass-launcher.net/babric' }
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = 'screenshotmetadata-babric'

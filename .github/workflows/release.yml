@@ -71,9 +71,41 @@ jobs:
         name: release-${{ matrix.mc-profile }}
         path: screenshotmetadata/build/libs/*.jar
 
+  build-legacy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - babric
+          - bta
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+
+    - name: Set up JDK
+      uses: actions/setup-java@v6
+      with:
+        java-version: 21
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x screenshotmetadata/gradlew
+
+    - name: Build mod (${{ matrix.platform }})
+      run: cd screenshotmetadata && ./gradlew -p ${{ matrix.platform }} clean build
+
+    - name: Upload release artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: release-${{ matrix.platform }}
+        path: screenshotmetadata/${{ matrix.platform }}/build/libs/*.jar
+
   release:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, build-legacy]
 
     steps:
     - name: Checkout repository

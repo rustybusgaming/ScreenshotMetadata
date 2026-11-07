@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "screenshotmetadata",
+  "version": "${version}",
+  "name": "Screenshot Metadata",
+  "description": "Automatically adds metadata to Better than Adventure! screenshots, including player info, coordinates, world, biome, season and weather information. Metadata is stored as PNG text chunks, embedded XMP, and XMP/JSON sidecar files.",
+  "authors": ["fentbuscoding"],
+  "contact": {
+    "homepage": "https://github.com/fentbuscoding/screenshot-metadata-mod",
+    "sources": "https://github.com/fentbuscoding/screenshot-metadata-mod"
+  },
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod"]
+  },
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "*",
+    "java": ">=${java_version}"
+  },
+  "mixins": [
+    "screenshotmetadata.mixins.json"
+  ]
+}
