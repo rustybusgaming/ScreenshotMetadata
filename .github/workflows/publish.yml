@@ -15,6 +15,7 @@ on:
           - all
           - neoforge
           - legacy
+          - legacy-curseforge
           - stable
           - beta
           - mc1_21_1
@@ -251,12 +252,15 @@ jobs:
         name: mod-jars-neoforge-${{ matrix.mc-profile }}
         path: screenshotmetadata/neoforge/build/libs/*.jar
 
-  # Babric (Beta 1.7.3) and Better than Adventure! go to Modrinth only; CurseForge
-  # has no category for either. Runs on tags and for the 'all' or 'legacy' choices
-  # of a manual run.
+  # Babric (Beta 1.7.3) and Better than Adventure! go to Modrinth. Babric also goes
+  # to CurseForge when CurseForge lists a Beta 1.7.3 game version (tagged Fabric, as
+  # CurseForge has no Babric loader). BTA stays off CurseForge: it has no BTA
+  # category, and a Beta 1.7.3 tag would offer the jar to vanilla Beta instances.
+  # Runs on tags and for the 'all' or 'legacy' choices of a manual run;
+  # 'legacy-curseforge' uploads the Babric jar to CurseForge only.
   publish-legacy:
     needs: check-secrets
-    if: github.event_name != 'workflow_dispatch' || github.event.inputs.profile == 'all' || github.event.inputs.profile == 'legacy'
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.profile == 'all' || github.event.inputs.profile == 'legacy' || github.event.inputs.profile == 'legacy-curseforge'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -279,16 +283,55 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x screenshotmetadata/gradlew
 
-    - name: Build and publish to Modrinth (${{ matrix.platform }})
+    - name: Find CurseForge's Beta 1.7.3 game version
+      id: curseforge
+      if: matrix.platform == 'babric'
+      shell: bash
+      env:
+        CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
       run: |
-        EXTRA_VERSION_ARG=""
+        set -euo pipefail
+        api=https://minecraft.curseforge.com/api/game
+        # Only Minecraft game-version types, as the publish plugin matches against.
+        type_ids="$(curl -fsSL -H "X-Api-Token: $CURSEFORGE_TOKEN" "$api/version-types" | jq -c '[.[] | select(.slug | startswith("minecraft")) | .id]')"
+        versions="$(curl -fsSL -H "X-Api-Token: $CURSEFORGE_TOKEN" "$api/versions")"
+        name="$(echo "$versions" | jq -r --argjson ids "$type_ids" '[.[] | select(.gameVersionTypeID as $t | $ids | index($t)) | select(.name | test("^(beta |b)1\\.7\\.3$"; "i"))][0].name // empty')"
+        echo "Minecraft versions on CurseForge mentioning 1.7:"
+        echo "$versions" | jq -r --argjson ids "$type_ids" '.[] | select(.gameVersionTypeID as $t | $ids | index($t)) | select(.name | test("1\\.7")) | "  \(.name)"'
+        if [ -n "$name" ]; then
+          echo "Uploading the Babric jar to CurseForge as: $name"
+        else
+          echo "::warning::CurseForge lists no Beta 1.7.3 game version; the Babric jar goes to Modrinth only."
+        fi
+        echo "name=$name" >> "$GITHUB_OUTPUT"
+
+    - name: Build and publish (${{ matrix.platform }})
+      shell: bash
+      run: |
+        EXTRA_ARGS=()
         if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
-          EXTRA_VERSION_ARG="-Pmod_version=${{ github.event.inputs.version }}"
+          EXTRA_ARGS+=("-Pmod_version=${{ github.event.inputs.version }}")
+        fi
+        if [ -n "${{ steps.curseforge.outputs.name }}" ]; then
+          EXTRA_ARGS+=("-Pcurseforge_minecraft_version=${{ steps.curseforge.outputs.name }}")
+        fi
+        TASK=publishMods
+        if [ "${{ github.event.inputs.profile }}" = "legacy-curseforge" ]; then
+          if [ "${{ matrix.platform }}" != "babric" ]; then
+            echo "BTA is not published to CurseForge; nothing to do."
+            exit 0
+          fi
+          if [ -z "${{ steps.curseforge.outputs.name }}" ]; then
+            echo "::error::CurseForge has no Beta 1.7.3 game version to upload the Babric jar to."
+            exit 1
+          fi
+          TASK=publishCurseforge
         fi
         cd screenshotmetadata
-        ./gradlew -p ${{ matrix.platform }} clean build publishMods $EXTRA_VERSION_ARG --no-configuration-cache
+        ./gradlew -p ${{ matrix.platform }} clean build $TASK "${EXTRA_ARGS[@]}" --no-configuration-cache
       env:
         MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v7

@@ -84,7 +84,11 @@ jar {
 
 def changelogFile = file('../../CHANGELOG.md')
 
-// Modrinth only: CurseForge has no Beta 1.7.3 / Babric category to upload into.
+// Modrinth always. CurseForge only when CI found a Beta 1.7.3 game version in
+// CurseForge's list and passes its exact name as -Pcurseforge_minecraft_version;
+// CurseForge has no Babric loader, so the file is tagged Fabric there.
+def curseforgeMinecraftVersion = findProperty('curseforge_minecraft_version')?.toString()
+
 publishMods {
 	displayName = "Screenshot Metadata v${project.version} (Babric b1.7.3)"
 	file = tasks.named('remapJar', AbstractArchiveTask).flatMap { it.archiveFile }
@@ -92,12 +96,21 @@ publishMods {
 	type = STABLE
 	// Without a token (local builds) this only validates the upload; CI sets the token.
 	dryRun = providers.environmentVariable('MODRINTH_TOKEN').getOrNull() == null
-	modLoaders.add('babric')
 
 	modrinth {
 		projectId = parentProperties.getProperty('modrinth_id')
 		accessToken = providers.environmentVariable('MODRINTH_TOKEN')
 		minecraftVersions.add('b1.7.3')
+		modLoaders.add('babric')
 		environment = CLIENT_ONLY
+	}
+
+	if (curseforgeMinecraftVersion) curseforge {
+		projectId = parentProperties.getProperty('curseforge_id')
+		accessToken = providers.environmentVariable('CURSEFORGE_TOKEN')
+		minecraftVersions.add(curseforgeMinecraftVersion)
+		modLoaders.add('fabric')
+		client = true
+		server = false
 	}
 }
