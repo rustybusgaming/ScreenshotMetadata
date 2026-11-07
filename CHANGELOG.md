@@ -50,6 +50,31 @@ All notable changes to the Screenshot Metadata Mod are documented here. This cha
 ### Fixed
 - Resolved intermittent HTTP 400 errors when resolving ModMenu from the TerraformersMC Maven repository by restricting Gradle to Maven POM metadata only (the server does not serve Gradle module metadata files)
 
+## [1.4.3] - 2026-11-07
+
+### Changed
+- The `beta` profile now tracks the live snapshot line instead of 25w46a. It was
+  pinned to the last Yarn snapshot, which has not moved since Yarn stopped
+  publishing, while the publish workflow separately resolved the Fabric API and the
+  store version from the newest actual snapshot. Those drifted apart across 26.1,
+  26.2 and 26.3, and the 1.4.2 release failed on CurseForge with
+  "Failed to find version: 26.4-snapshot-2" — a version the build was not for.
+  The profile is now a deobfuscated no-remap target like the other Minecraft 26
+  profiles, and every value the workflow resolves comes from one snapshot alias.
+- The `beta` profile publishes to Modrinth only. CurseForge adds new snapshot
+  versions well after Modrinth does and rejects an upload naming one it does not
+  list yet. Any profile can opt out with `<profile>_publish_curseforge=false`.
+- The config screen is now split by Screen-API generation. Minecraft 26.4 dropped the
+  mouse and delta arguments from `extractRenderState` and `extractBackground`, so one
+  file cannot compile against both 26.3 and 26.4: `src/mojang_screen_26_3` serves
+  26.1-26.3 and `src/mojang_screen_26_4` serves 26.4. The mixin is unaffected and
+  stays shared across every 26.x target.
+- Fabric Loader 0.20.1, which Fabric API for 26.4 requires; ModMenu 22.0.0-alpha.3
+  for the snapshot profile.
+- Dropped the `beta`-only `fabric-key-binding-api-v1` dependency. That artifact does
+  not exist for Minecraft 26, and the profile now takes the full Fabric API like
+  every other target.
+
 ## [1.4.2] - 2026-10-04
 
 ### Fixed

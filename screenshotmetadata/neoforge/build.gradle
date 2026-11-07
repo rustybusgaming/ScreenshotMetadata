@@ -37,14 +37,16 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(javaVersion)
 
 // The metadata writers and the config are the same code the Fabric builds use.
 // NeoForge runs on Mojang's names, so the screenshot mixin is the one in src/mojang
-// that Fabric uses on Minecraft 26; src/mojang26 or src/mojang121 supply the
-// version-specific bits (MinecraftCompat and the config screen). Only the ModMenu
+// that Fabric uses on Minecraft 26; src/mojang26 + src/mojang_screen_26_3, or
+// src/mojang121, supply the version-specific bits (MinecraftCompat and the config
+// screen). Only the ModMenu
 // glue is left out.
-def versionSources = isMc26 ? '../src/mojang26/java' : '../src/mojang121/java'
+// NeoForge has no 26.4 build yet, so every 26.x profile uses the 26.1-26.3 screen.
+def versionSources = isMc26 ? ['../src/mojang26/java', '../src/mojang_screen_26_3/java'] : ['../src/mojang121/java']
 sourceSets {
 	main {
 		java {
-			srcDirs = ['../src/main/java', '../src/mojang/java', versionSources, 'src/main/java']
+			srcDirs = ['../src/main/java', '../src/mojang/java'] + versionSources + ['src/main/java']
 			exclude 'com/fentbuscoding/screenshotmetadata/compat/ModMenuIntegration.java'
 		}
 	}

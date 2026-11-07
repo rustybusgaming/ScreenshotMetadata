@@ -164,7 +164,7 @@ cd screenshotmetadata
 | --- | --- | --- |
 | `stable` | 1.21.11 | 21 |
 | `mc1_21_1` ... `mc1_21_10` | 1.21.1 - 1.21.10 | 21 |
-| `beta` | 25w46a (26.1 snapshot line) | 25 |
+| `beta` | the current snapshot (Modrinth only) | 25 |
 | `mc26_1`, `mc26_1_1`, `mc26_1_2` | 26.1, 26.1.1, 26.1.2 | 25 |
 | `mc26_2`, `mc26_3` | 26.2, 26.3 | 25 |
 
@@ -222,12 +222,14 @@ src/main/java/com/fentbuscoding/screenshotmetadata/   (shared by every build)
 - metadata/: Metadata writers (PNG, XMP, JSON)
 
 src/fabric/...      (Fabric Loader glue: entrypoint, Platform for Fabric/Quilt/Babric/BTA)
-src/yarn/java/...   (Fabric on 1.21.x and the snapshot profile)
+src/yarn/java/...   (Fabric on 1.21.x)
 src/mojang/java/... (Mojang names: Fabric on 26, NeoForge on 1.21.x and 26)
 - mixin/: Minecraft interception hooks
 - compat/: ModMenu integration (Fabric only)
-src/mojang26/java/...  (26.x: MinecraftCompat and the config screen)
-src/mojang121/java/... (1.21.x, NeoForge: MinecraftCompat and the config screen)
+src/mojang26/java/...          (26.x: MinecraftCompat)
+src/mojang_screen_26_3/java/   (config screen for 26.1 - 26.3, Fabric and NeoForge)
+src/mojang_screen_26_4/java/   (config screen for 26.4 and the beta snapshot profile)
+src/mojang121/java/...         (1.21.x, NeoForge: MinecraftCompat and the config screen)
 
 neoforge/src/main/... (NeoForge entrypoint, Platform, neoforge.mods.toml)
 babric/src/main/...   (Babric build: Beta 1.7.3 mixin, fabric.mod.json)
@@ -235,11 +237,13 @@ bta/src/main/...      (Better than Adventure! build: BTA mixin, fabric.mod.json)
 ```
 The Mojang-names mixin is shared by Fabric 26 and every NeoForge version; the few
 calls that were renamed between 1.21.x and 26 go through `compat/MinecraftCompat`.
-The Babric and BTA mixins only read the game state; renaming and writing the
-metadata goes through `metadata/LegacyScreenshotSupport.java` in the shared code.
-The two classes that touch Minecraft directly exist once per naming scheme, because
-Yarn and the deobfuscated 26 client name the same APIs differently. A change to
-either one usually needs the same change in the other.
+The config screen is split once more because 26.4 changed Screen's render hooks
+(`<profile>_screen_api` picks the copy). The Babric and BTA mixins only read the
+game state; renaming and writing the metadata goes through
+`metadata/LegacyScreenshotSupport.java` in the shared code. The classes that touch
+Minecraft directly exist once per naming scheme, because Yarn and the deobfuscated
+26 client name the same APIs differently; a change to any of them usually needs the
+same change in its siblings.
 
 ## License
 

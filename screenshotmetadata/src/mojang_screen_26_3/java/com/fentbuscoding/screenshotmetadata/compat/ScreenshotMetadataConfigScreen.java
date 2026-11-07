@@ -19,8 +19,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The settings screen, shared by the ModMenu integration (Fabric) and NeoForge's
- * mod list config button.
+ * The settings screen for Minecraft 26.1-26.3, shared by the ModMenu integration
+ * (Fabric) and NeoForge's mod list config button. 26.4 changed Screen's render hooks;
+ * its copy is in src/mojang_screen_26_4. Keep the two in step.
  */
 public class ScreenshotMetadataConfigScreen extends Screen {
     private final Screen parent;
