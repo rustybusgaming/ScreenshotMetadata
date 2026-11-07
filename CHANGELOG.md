@@ -2,6 +2,34 @@
 
 All notable changes to the Screenshot Metadata Mod are documented here. This changelog focuses on functional changes to the mod itself.
 
+## [Unreleased]
+
+### Added
+- Babric (Minecraft Beta 1.7.3) support: `screenshotmetadata-babric-b1.7.3-<version>.jar`,
+  built with `./gradlew -p babric build`. Records player, coordinates, facing, dimension,
+  biome, time, weather, world name and seed, difficulty, health, held item and armour,
+  render distance, player state, light levels, the block or entity being looked at, the
+  texture pack and the mod list.
+- Better than Adventure! 8.0.1 support: `screenshotmetadata-bta8.0.1-<version>.jar`, built
+  with `./gradlew -p bta build`. Records the same fields plus BTA's game mode, season and
+  named weather. BTA writes screenshots a few frames after F2 (GPU read-back), and the
+  metadata is added once the PNG is actually on disk.
+- Both builds share the existing metadata writers and config file; there is no Mod Menu
+  screen for them yet.
+- NeoForge support for Minecraft 1.21.1, 1.21.3 - 1.21.11 and 26.1 - 26.3:
+  `screenshotmetadata-neoforge-mc<version>-<version>.jar`, built with
+  `./gradlew -p neoforge build -PmcProfile=<profile>`. Records the same metadata as the
+  Fabric jars, and NeoForge's mod list **Config** button opens the same settings screen
+  that ModMenu does. 1.21.2 is skipped (NeoForge never left its first beta there).
+- Quilt support: the Fabric jars run on Quilt Loader unchanged and are now published for
+  Quilt as well. The metadata records which loader (Fabric, Quilt or NeoForge) took it.
+
+### Changed
+- The shared code no longer calls Fabric Loader directly; loader-specific bits (config
+  folder, mod list, version) go through a small `Platform` interface with Fabric and
+  NeoForge implementations. The Fabric entrypoint class is now
+  `com.fentbuscoding.screenshotmetadata.fabric.ScreenshotMetadataFabric`.
+
 ## [1.3.3] - 2026-04-15
 
 ### Added

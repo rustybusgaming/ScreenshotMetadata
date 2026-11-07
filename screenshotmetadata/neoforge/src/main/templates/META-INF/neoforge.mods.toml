@@ -1,0 +1,31 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="MIT"
+issueTrackerURL="https://github.com/fentbuscoding/screenshot-metadata-mod/issues"
+
+[[mods]]
+modId="screenshotmetadata"
+version="${mod_version}"
+displayName="Screenshot Metadata"
+authors="fentbuscoding"
+displayURL="https://github.com/fentbuscoding/screenshot-metadata-mod"
+description='''
+Automatically adds metadata to Minecraft screenshots, including player info, coordinates, world data and biome information. Metadata is stored as PNG text chunks, embedded XMP, and XMP/JSON sidecar files.
+'''
+
+[[mixins]]
+config="screenshotmetadata.neoforge.mixins.json"
+
+[[dependencies.screenshotmetadata]]
+    modId="neoforge"
+    type="required"
+    versionRange="${neo_version_range}"
+    ordering="NONE"
+    side="CLIENT"
+
+[[dependencies.screenshotmetadata]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="CLIENT"

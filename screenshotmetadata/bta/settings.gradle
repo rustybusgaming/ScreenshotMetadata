@@ -1,0 +1,13 @@
+// Better than Adventure! is its own fork of Minecraft Beta 1.7.3 with its own Fabric
+// Loader build, so it is built separately from the main profile build: run
+// `./gradlew -p bta build` from the screenshotmetadata directory.
+pluginManagement {
+	repositories {
+		maven { url = 'https://maven.fabricmc.net/' }
+		maven { url = 'https://maven.thesignalumproject.net/infrastructure' }
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = 'screenshotmetadata-bta'

@@ -7,8 +7,7 @@ import com.fentbuscoding.screenshotmetadata.metadata.JsonSidecarWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.PngMetadataWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.PngXmpWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.XmpSidecarWriter;
-import net.fabricmc.loader.api.FabricLoader;
-import net.fabricmc.loader.api.ModContainer;
+import com.fentbuscoding.screenshotmetadata.platform.Platform;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.registry.entry.RegistryEntry;
@@ -364,6 +363,7 @@ public class ScreenshotRecorderMixin {
             metadata.put("MinecraftVersion", client.getGameVersion());
             metadata.put("ModVersion", ScreenshotMetadataMod.MOD_VERSION);
             metadata.put("ModId", ScreenshotMetadataMod.MOD_ID);
+            metadata.put("ModLoader", Platform.get().getLoaderName());
 
             // Player status metadata
             if (config.includePlayerStatus) {
@@ -808,17 +808,16 @@ public class ScreenshotRecorderMixin {
         boolean modListTruncated = false;
 
         try {
-            List<ModContainer> mods = new ArrayList<>(FabricLoader.getInstance().getAllMods());
-            mods.sort(Comparator.comparing(mod -> mod.getMetadata().getId()));
+            List<Platform.ModEntry> mods = Platform.get().getMods();
             modCount = mods.size();
 
-            for (ModContainer mod : mods) {
+            for (Platform.ModEntry mod : mods) {
                 if (modEntries.size() >= MAX_MOD_LIST_ENTRIES) {
                     modListTruncated = true;
                     break;
                 }
-                String id = mod.getMetadata().getId();
-                String version = mod.getMetadata().getVersion().getFriendlyString();
+                String id = mod.id();
+                String version = mod.version();
                 modEntries.add(id + "@" + version);
             }
         } catch (Exception e) {
@@ -880,7 +879,7 @@ public class ScreenshotRecorderMixin {
 
     private static String detectShaderPack() {
         try {
-            if (FabricLoader.getInstance().isModLoaded("iris")) {
+            if (Platform.get().isModLoaded("iris")) {
                 String irisPack = tryGetIrisShaderPack();
                 return irisPack != null ? irisPack : "Unknown";
             }

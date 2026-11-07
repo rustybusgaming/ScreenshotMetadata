@@ -1,0 +1,123 @@
+// Better than Adventure! ships deobfuscated, so like the Minecraft 26 profiles it uses
+// the no-remap Loom plugin and has no mappings.
+plugins {
+	id 'net.fabricmc.fabric-loom' version '1.17.21'
+}
+
+def parentProperties = new Properties()
+file('../gradle.properties').withInputStream { parentProperties.load(it) }
+def modVersion = (findProperty('mod_version') ?: parentProperties.getProperty('mod_version')).toString()
+def archivesBaseName = parentProperties.getProperty('archives_base_name')
+def javaVersion = project.java_version.toString().toInteger()
+
+version = modVersion
+group = parentProperties.getProperty('maven_group')
+
+base {
+	archivesName = "${archivesBaseName}-bta${project.bta_version}"
+}
+
+loom {
+	def channelPrefix = project.bta_channel == 'nightly' ? '' : 'v'
+	customMinecraftMetadata.set("https://downloads.betterthanadventure.net/bta-client/${project.bta_channel}/${channelPrefix}${project.bta_version}/manifest.json")
+}
+
+// The metadata writers and the config are plain Java shared with every other build;
+// only the mixin that reads the game state is BTA-specific.
+sourceSets {
+	main {
+		java {
+			srcDirs = ['../src/main/java', '../src/fabric/java', 'src/main/java']
+		}
+	}
+}
+
+repositories {
+	mavenCentral()
+	ivy {
+		url = 'https://piston-data.mojang.com'
+		patternLayout { artifact('v1/[organisation]/[revision]/[module].jar') }
+		metadataSources { artifact() }
+	}
+	maven { url = 'https://maven.fabricmc.net/' }
+	maven { url = 'https://maven.thesignalumproject.net/infrastructure' }
+	maven { url = 'https://maven.thesignalumproject.net/releases' }
+}
+
+dependencies {
+	minecraft "::${project.bta_version}"
+
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Provided by the BTA runtime; only needed to compile.
+	compileOnly 'org.slf4j:slf4j-api:2.0.17'
+	compileOnly 'com.google.code.gson:gson:2.11.0'
+
+	// Only for runClient: the vanilla Beta 1.7.3 client that BTA patches at launch, and
+	// the LWJGL 3 natives that the BTA launcher normally provides.
+	runtimeOnly 'objects:client:43db9b498cb67058d2e12d394e6507722e71bb45'
+	def lwjglNatives = lwjglNativesClassifier()
+	localRuntime platform("org.lwjgl:lwjgl-bom:${project.lwjgl_version}")
+	['lwjgl', 'lwjgl-glfw', 'lwjgl-openal', 'lwjgl-opengl', 'lwjgl-stb'].each {
+		localRuntime "org.lwjgl:${it}::${lwjglNatives}"
+	}
+}
+
+static String lwjglNativesClassifier() {
+	def os = System.getProperty('os.name')
+	def arch = System.getProperty('os.arch')
+	def arm = arch.startsWith('arm') || arch.startsWith('aarch64')
+	if (os.startsWith('Windows')) {
+		return arch.startsWith('aarch64') ? 'natives-windows-arm64' : (arch.contains('64') ? 'natives-windows' : 'natives-windows-x86')
+	}
+	if (os.startsWith('Mac') || os.startsWith('Darwin')) {
+		return arch.startsWith('aarch64') ? 'natives-macos-arm64' : 'natives-macos'
+	}
+	if (arm) {
+		return (arch.contains('64') || arch.startsWith('armv8')) ? 'natives-linux-arm64' : 'natives-linux-arm32'
+	}
+	return 'natives-linux'
+}
+
+// The BTA manifest still lists the LWJGL 2 era libraries of Beta 1.7.3; BTA itself
+// bundles LWJGL 3, so these are only noise on the classpath.
+configurations.configureEach {
+	exclude group: 'org.lwjgl.lwjgl'
+	exclude group: 'net.java.jutils'
+	exclude group: 'net.java.jinput'
+	exclude group: 'net.sf.jopt-simple'
+	exclude group: 'net.minecraft', module: 'launchwrapper'
+}
+
+processResources {
+	// Only the shared assets: the parent's fabric.mod.json and mixin config target
+	// modern Minecraft.
+	from('../src/main/resources') {
+		include 'assets/**'
+	}
+	from('../src/fabric/resources')
+	def props = [version: modVersion, java_version: javaVersion, loader_version: project.loader_version]
+	inputs.properties props
+	filesMatching(['fabric.mod.json', 'screenshotmetadata.mixins.json']) {
+		expand props
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+	options.release = javaVersion
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.toVersion(javaVersion)
+	targetCompatibility = JavaVersion.toVersion(javaVersion)
+}
+
+jar {
+	def archName = base.archivesName.get()
+	inputs.property 'archivesName', archName
+	from('../LICENSE.MIT') {
+		rename { "${it}_${archName}" }
+	}
+}

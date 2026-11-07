@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.fentbuscoding.screenshotmetadata.mixin",
+  "compatibilityLevel": "JAVA_${java_version}",
+  "mixins": [],
+  "client": [
+    "ScreenShotMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

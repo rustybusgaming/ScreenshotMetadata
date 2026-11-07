@@ -81,3 +81,104 @@ jobs:
         retention-days: 14
         if-no-files-found: ignore
         path: screenshotmetadata/build/reports/
+
+  # Babric (Beta 1.7.3) and Better than Adventure! use their own Loom setups, so
+  # they are separate Gradle builds rather than mcProfile values.
+  build-legacy:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - babric
+          - bta
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+
+    - name: Validate Gradle wrapper
+      uses: gradle/actions/wrapper-validation@v6
+
+    - name: Set up JDK
+      uses: actions/setup-java@v6
+      with:
+        java-version: 21
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x screenshotmetadata/gradlew
+
+    - name: Build with Gradle (${{ matrix.platform }})
+      working-directory: screenshotmetadata
+      run: ./gradlew -p ${{ matrix.platform }} build --no-daemon
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v7
+      if: success()
+      with:
+        name: build-artifacts-${{ matrix.platform }}
+        retention-days: 14
+        path: |
+          screenshotmetadata/${{ matrix.platform }}/build/libs/*.jar
+
+  # NeoForge builds use ModDevGradle, so they are their own Gradle build with their
+  # own mcProfile list (neoforge/gradle.properties).
+  build-neoforge:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        mc-profile:
+          - mc1_21_1
+          - mc1_21_3
+          - mc1_21_4
+          - mc1_21_5
+          - mc1_21_6
+          - mc1_21_7
+          - mc1_21_8
+          - mc1_21_9
+          - mc1_21_10
+          - mc1_21_11
+          - mc26_1
+          - mc26_1_1
+          - mc26_1_2
+          - mc26_2
+          - mc26_3
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+
+    - name: Validate Gradle wrapper
+      uses: gradle/actions/wrapper-validation@v6
+
+    # 1.21.x compiles with Java 21 and Minecraft 26 with Java 25; Gradle runs on 25.
+    - name: Set up JDKs
+      uses: actions/setup-java@v6
+      with:
+        java-version: |
+          21
+          25
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x screenshotmetadata/gradlew
+
+    - name: Build with Gradle (NeoForge ${{ matrix.mc-profile }})
+      working-directory: screenshotmetadata
+      run: ./gradlew -p neoforge build -PmcProfile=${{ matrix.mc-profile }} --no-daemon
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v7
+      if: success()
+      with:
+        name: build-artifacts-neoforge-${{ matrix.mc-profile }}
+        retention-days: 14
+        path: |
+          screenshotmetadata/neoforge/build/libs/*.jar
+

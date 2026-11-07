@@ -56,11 +56,44 @@ When you take a screenshot, the mod creates:
 Download the jar that matches your Minecraft version; each one is named
 `screenshotmetadata-mc<version>-<mod version>.jar`.
 
+#### Quilt
+The Fabric jars run on Quilt Loader as they are (Quilt Loader 0.30+ reports itself
+to Fabric mods as Fabric Loader 0.19.5, which meets every jar's minimum). Use the
+same `screenshotmetadata-mc<version>-...jar` with Fabric API (or QFAPI, where it
+exists for your version). The metadata records `Quilt` as the loader.
+
+#### NeoForge
+- Minecraft 1.21.1, 1.21.3 - 1.21.11, or 26.1 - 26.3, with NeoForge for that version
+- Jar: `screenshotmetadata-neoforge-mc<version>-<mod version>.jar`
+- No other mods needed; the settings screen opens from the **Config** button in
+  NeoForge's mod list
+- Java 21 (Java 25 for Minecraft 26)
+
+There is no 1.21.2 jar: NeoForge only ever published one beta for 1.21.2 before
+moving to 1.21.3. 1.21.6, 1.21.7, 1.21.9, 26.1 and 26.1.1 never got a stable
+NeoForge release, so those jars are built against (and published as) beta.
+
+#### Babric (Minecraft Beta 1.7.3)
+- A Babric instance (Fabric Loader 0.16+ on Babric's intermediary), Java 17+
+- Jar: `screenshotmetadata-babric-b1.7.3-<mod version>.jar`
+- No Fabric API or StationAPI needed
+
+#### Better than Adventure!
+- BTA 8.0.1 with the BTA build of Fabric Loader (0.18.4-bta.11+), Java 17+
+- Jar: `screenshotmetadata-bta8.0.1-<mod version>.jar`
+- No Fabric API or HalpLibe needed
+
+Beta 1.7.3 and BTA simply don't have some of the modern data (hunger, potion effects,
+experience, off-hand), so those fields are left out. BTA screenshots additionally
+record the current season and BTA's named weather. Neither build has a Mod Menu
+screen yet: edit `config/screenshotmetadata.json` instead (same settings, same
+profiles).
+
 ### Setup Steps
 1. Download the mod JAR file
 2. Place it in your mods folder (usually .minecraft/mods/)
-3. Launch Minecraft with Fabric Loader
-4. Optional: Install ModMenu for easy configuration
+3. Launch Minecraft with Fabric Loader, Quilt Loader or NeoForge
+4. Optional (Fabric/Quilt): Install ModMenu for easy configuration
 
 ## Usage
 
@@ -135,6 +168,37 @@ cd screenshotmetadata
 | `mc26_1`, `mc26_1_1`, `mc26_1_2` | 26.1, 26.1.1, 26.1.2 | 25 |
 | `mc26_2`, `mc26_3` | 26.2, 26.3 | 25 |
 
+Babric and Better than Adventure! need different Loom setups (Babric's Loom
+extension; BTA's own loader and game manifest), so they are separate Gradle builds
+in their own folders rather than profiles. They share the wrapper and the
+`src/main/java` code, and take `mod_version` from the main `gradle.properties`:
+
+```
+cd screenshotmetadata
+./gradlew -p babric build   # babric/build/libs/
+./gradlew -p bta build      # bta/build/libs/
+./gradlew -p bta runClient  # works for babric too
+```
+
+Both run on Java 21 (Loom 1.17) and target Java 17.
+
+NeoForge uses ModDevGradle, so it is a separate build too, with its own profiles
+(listed in `neoforge/gradle.properties`, one per Minecraft version):
+
+```
+cd screenshotmetadata
+./gradlew -p neoforge build -PmcProfile=mc1_21_1   # neoforge/build/libs/
+./gradlew -p neoforge runClient -PmcProfile=mc26_3
+```
+
+| NeoForge profile | Minecraft | Java |
+| --- | --- | --- |
+| `mc1_21_1`, `mc1_21_3` ... `mc1_21_11` | 1.21.1, 1.21.3 - 1.21.11 | 21 |
+| `mc26_1`, `mc26_1_1`, `mc26_1_2`, `mc26_2`, `mc26_3` | 26.1 - 26.3 | 25 |
+
+Like the main build, it needs Gradle on Java 25 with a JDK 21 also installed.
+Quilt needs no build of its own: the Fabric jars are published for Quilt as well.
+
 Minecraft 26 ships a deobfuscated client, so there are no Yarn or Mojang mappings to
 apply to it. Those profiles set `mappings_channel=none` and build with Loom's
 no-remap plugin, which means the game, the mod and its dependencies all share one
@@ -151,16 +215,28 @@ installed as well and Gradle will find it.
 
 ### Project Structure
 ```
-src/main/java/com/fentbuscoding/screenshotmetadata/   (shared by every profile)
-- ScreenshotMetadataMod.java: Main mod initialization
+src/main/java/com/fentbuscoding/screenshotmetadata/   (shared by every build)
+- ScreenshotMetadataMod.java: Mod constants and init
+- platform/Platform.java: What the shared code needs from the loader
 - config/: Configuration management
 - metadata/: Metadata writers (PNG, XMP, JSON)
 
-src/yarn/java/...   (used by the 1.21.x and snapshot profiles)
-src/mojang/java/... (used by the Minecraft 26 profiles)
+src/fabric/...      (Fabric Loader glue: entrypoint, Platform for Fabric/Quilt/Babric/BTA)
+src/yarn/java/...   (Fabric on 1.21.x and the snapshot profile)
+src/mojang/java/... (Mojang names: Fabric on 26, NeoForge on 1.21.x and 26)
 - mixin/: Minecraft interception hooks
-- compat/: Mod compatibility (ModMenu integration)
+- compat/: ModMenu integration (Fabric only)
+src/mojang26/java/...  (26.x: MinecraftCompat and the config screen)
+src/mojang121/java/... (1.21.x, NeoForge: MinecraftCompat and the config screen)
+
+neoforge/src/main/... (NeoForge entrypoint, Platform, neoforge.mods.toml)
+babric/src/main/...   (Babric build: Beta 1.7.3 mixin, fabric.mod.json)
+bta/src/main/...      (Better than Adventure! build: BTA mixin, fabric.mod.json)
 ```
+The Mojang-names mixin is shared by Fabric 26 and every NeoForge version; the few
+calls that were renamed between 1.21.x and 26 go through `compat/MinecraftCompat`.
+The Babric and BTA mixins only read the game state; renaming and writing the
+metadata goes through `metadata/LegacyScreenshotSupport.java` in the shared code.
 The two classes that touch Minecraft directly exist once per naming scheme, because
 Yarn and the deobfuscated 26 client name the same APIs differently. A change to
 either one usually needs the same change in the other.
