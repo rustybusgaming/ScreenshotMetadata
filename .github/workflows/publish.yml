@@ -13,6 +13,7 @@ on:
         type: choice
         options:
           - all
+          - neoforge
           - stable
           - beta
           - mc1_21_1
@@ -193,3 +194,64 @@ jobs:
       with:
         name: mod-jars-${{ matrix.mc-profile }}
         path: screenshotmetadata/build/libs/*.jar
+
+  # NeoForge jars go to the same CurseForge and Modrinth projects. Runs on tags and
+  # for the 'all' or 'neoforge' choices of a manual run.
+  publish-neoforge:
+    needs: check-secrets
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.profile == 'all' || github.event.inputs.profile == 'neoforge'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mc-profile:
+          - mc1_21_1
+          - mc1_21_3
+          - mc1_21_4
+          - mc1_21_5
+          - mc1_21_6
+          - mc1_21_7
+          - mc1_21_8
+          - mc1_21_9
+          - mc1_21_10
+          - mc1_21_11
+          - mc26_1
+          - mc26_1_1
+          - mc26_1_2
+          - mc26_2
+          - mc26_3
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+
+    - name: Set up JDKs
+      uses: actions/setup-java@v6
+      with:
+        java-version: |
+          21
+          25
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x screenshotmetadata/gradlew
+
+    - name: Build and publish (NeoForge ${{ matrix.mc-profile }})
+      run: |
+        EXTRA_VERSION_ARG=""
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+          EXTRA_VERSION_ARG="-Pmod_version=${{ github.event.inputs.version }}"
+        fi
+        cd screenshotmetadata
+        ./gradlew -p neoforge clean build publishMods -PmcProfile=${{ matrix.mc-profile }} $EXTRA_VERSION_ARG --no-configuration-cache
+      env:
+        CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+        MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: mod-jars-neoforge-${{ matrix.mc-profile }}
+        path: screenshotmetadata/neoforge/build/libs/*.jar
+

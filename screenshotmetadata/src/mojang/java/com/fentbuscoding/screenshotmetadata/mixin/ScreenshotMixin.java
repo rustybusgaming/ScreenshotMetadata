@@ -1,18 +1,17 @@
 package com.fentbuscoding.screenshotmetadata.mixin;
 
 import com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod;
+import com.fentbuscoding.screenshotmetadata.compat.MinecraftCompat;
 import com.fentbuscoding.screenshotmetadata.config.ScreenshotMetadataConfig;
 import com.fentbuscoding.screenshotmetadata.metadata.JsonSidecarContext;
 import com.fentbuscoding.screenshotmetadata.metadata.JsonSidecarWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.PngMetadataWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.PngXmpWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.XmpSidecarWriter;
-import net.fabricmc.loader.api.FabricLoader;
-import net.fabricmc.loader.api.ModContainer;
+import com.fentbuscoding.screenshotmetadata.platform.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.core.Holder;
-import net.minecraft.util.Util;
 import net.minecraft.world.level.biome.Biome;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -42,11 +41,13 @@ import java.util.concurrent.CompletableFuture;
  * Mixin to intercept screenshot saving and add comprehensive metadata.
  * Uses async processing to avoid blocking the game thread.
  *
- * This is the Minecraft 26 counterpart of ScreenshotRecorderMixin in src/yarn: the
- * deobfuscated client calls the target Screenshot#grab rather than
- * ScreenshotRecorder#saveScreenshot. The signature below is the same across 26.1
- * through 26.3; the injects are optional, so a future rename fails quietly rather
- * than crashing the game.
+ * This is the Mojang-names counterpart of ScreenshotRecorderMixin in src/yarn, used
+ * by Fabric on Minecraft 26 and by NeoForge on 1.21.x and 26: the target is
+ * Screenshot#grab rather than ScreenshotRecorder#saveScreenshot. The few calls whose
+ * names changed between 1.21.x and 26 go through compat/MinecraftCompat, which
+ * src/mojang26 and src/mojang121 each provide. The Screenshot#grab signature below
+ * is the same from 1.21.1 through 26.3; the injects are optional, so a future
+ * rename fails quietly rather than crashing the game.
  */
 @Mixin(Screenshot.class)
 public class ScreenshotMixin {
@@ -94,7 +95,7 @@ public class ScreenshotMixin {
             } catch (Exception e) {
                 ScreenshotMetadataMod.LOGGER.error("Unexpected error in screenshot metadata processing", e);
             }
-        }, Util.ioPool());
+        }, MinecraftCompat.ioExecutor());
     }
     
     /**
@@ -309,7 +310,7 @@ public class ScreenshotMixin {
             
             // World and biome information
             if (client.level != null && client.player != null) {
-                String worldKey = client.level.dimension().identifier().toString();
+                String worldKey = MinecraftCompat.id(client.level.dimension());
                 metadata.put("World", worldKey);
                 metadata.put("DimensionId", worldKey);
                 metadata.put("Dimension", formatDimensionName(worldKey));
@@ -325,7 +326,7 @@ public class ScreenshotMixin {
                     }
                 }
 
-                long timeOfDay = client.level.getDefaultClockTime() % 24000L;
+                long timeOfDay = MinecraftCompat.dayTime(client.level) % 24000L;
                 metadata.put("TimeOfDayTicks", String.valueOf(timeOfDay));
                 metadata.put("TimeOfDay", formatTimeOfDay(timeOfDay));
 
@@ -370,6 +371,7 @@ public class ScreenshotMixin {
             metadata.put("MinecraftVersion", client.getLaunchedVersion());
             metadata.put("ModVersion", ScreenshotMetadataMod.MOD_VERSION);
             metadata.put("ModId", ScreenshotMetadataMod.MOD_ID);
+            metadata.put("ModLoader", Platform.get().getLoaderName());
 
             // Player status metadata
             if (config.includePlayerStatus) {
@@ -564,7 +566,7 @@ public class ScreenshotMixin {
         try {
             Holder<Biome> biomeEntry = client.level.getBiome(client.player.blockPosition());
             return biomeEntry.unwrapKey()
-                    .map(key -> formatBiomeName(key.identifier().getPath()))
+                    .map(key -> formatBiomeName(MinecraftCompat.path(key)))
                     .orElse("Unknown");
         } catch (Exception e) {
             ScreenshotMetadataMod.LOGGER.debug("Could not extract biome name", e);
@@ -579,7 +581,7 @@ public class ScreenshotMixin {
         try {
             Holder<Biome> biomeEntry = client.level.getBiome(client.player.blockPosition());
             return biomeEntry.unwrapKey()
-                    .map(key -> key.identifier().toString())
+                    .map(MinecraftCompat::id)
                     .orElse("Unknown");
         } catch (Exception e) {
             ScreenshotMetadataMod.LOGGER.debug("Could not extract biome id", e);
@@ -814,17 +816,16 @@ public class ScreenshotMixin {
         boolean modListTruncated = false;
 
         try {
-            List<ModContainer> mods = new ArrayList<>(FabricLoader.getInstance().getAllMods());
-            mods.sort(Comparator.comparing(mod -> mod.getMetadata().getId()));
+            List<Platform.ModEntry> mods = Platform.get().getMods();
             modCount = mods.size();
 
-            for (ModContainer mod : mods) {
+            for (Platform.ModEntry mod : mods) {
                 if (modEntries.size() >= MAX_MOD_LIST_ENTRIES) {
                     modListTruncated = true;
                     break;
                 }
-                String id = mod.getMetadata().getId();
-                String version = mod.getMetadata().getVersion().getFriendlyString();
+                String id = mod.id();
+                String version = mod.version();
                 modEntries.add(id + "@" + version);
             }
         } catch (Exception e) {
@@ -886,7 +887,7 @@ public class ScreenshotMixin {
 
     private static String detectShaderPack() {
         try {
-            if (FabricLoader.getInstance().isModLoaded("iris")) {
+            if (Platform.get().isModLoaded("iris")) {
                 String irisPack = tryGetIrisShaderPack();
                 return irisPack != null ? irisPack : "Unknown";
             }

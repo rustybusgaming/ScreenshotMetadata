@@ -2,8 +2,7 @@ package com.fentbuscoding.screenshotmetadata.metadata;
 
 import com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod;
 import com.fentbuscoding.screenshotmetadata.config.ScreenshotMetadataConfig;
-import net.fabricmc.loader.api.FabricLoader;
-import net.fabricmc.loader.api.ModContainer;
+import com.fentbuscoding.screenshotmetadata.platform.Platform;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -17,7 +16,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -54,6 +52,7 @@ public final class LegacyScreenshotSupport {
         }
         metadata.put("ModVersion", ScreenshotMetadataMod.MOD_VERSION);
         metadata.put("ModId", ScreenshotMetadataMod.MOD_ID);
+        metadata.put("ModLoader", Platform.get().getLoaderName());
     }
 
     /**
@@ -116,15 +115,14 @@ public final class LegacyScreenshotSupport {
         int modCount = -1;
         boolean truncated = false;
         try {
-            List<ModContainer> mods = new ArrayList<>(FabricLoader.getInstance().getAllMods());
-            mods.sort(Comparator.comparing(mod -> mod.getMetadata().getId()));
+            List<Platform.ModEntry> mods = Platform.get().getMods();
             modCount = mods.size();
-            for (ModContainer mod : mods) {
+            for (Platform.ModEntry mod : mods) {
                 if (modEntries.size() >= MAX_MOD_LIST_ENTRIES) {
                     truncated = true;
                     break;
                 }
-                modEntries.add(mod.getMetadata().getId() + "@" + mod.getMetadata().getVersion().getFriendlyString());
+                modEntries.add(mod.id() + "@" + mod.version());
             }
         } catch (Exception e) {
             ScreenshotMetadataMod.LOGGER.debug("Could not collect mod list", e);

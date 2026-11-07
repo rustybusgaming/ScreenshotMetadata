@@ -21,7 +21,7 @@ base {
 sourceSets {
 	main {
 		java {
-			srcDirs = ['../src/main/java', 'src/main/java']
+			srcDirs = ['../src/main/java', '../src/fabric/java', 'src/main/java']
 		}
 	}
 }
@@ -54,6 +54,7 @@ processResources {
 	from('../src/main/resources') {
 		include 'assets/**'
 	}
+	from('../src/fabric/resources')
 	def props = [version: modVersion, java_version: javaVersion]
 	inputs.properties props
 	filesMatching(['fabric.mod.json', 'screenshotmetadata.mixins.json']) {

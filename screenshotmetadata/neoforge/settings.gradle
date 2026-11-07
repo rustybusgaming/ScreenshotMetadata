@@ -1,0 +1,11 @@
+// NeoForge uses ModDevGradle instead of Fabric Loom, so it is its own Gradle build:
+// run `./gradlew -p neoforge build -PmcProfile=mc1_21_1` from the screenshotmetadata
+// directory.
+pluginManagement {
+	repositories {
+		gradlePluginPortal()
+		maven { url = 'https://maven.neoforged.net/releases' }
+	}
+}
+
+rootProject.name = 'screenshotmetadata-neoforge'

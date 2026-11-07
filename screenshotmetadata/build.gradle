@@ -53,13 +53,17 @@ def artifactMinecraftLabel = minecraftVersion.replaceAll("[^0-9A-Za-z._-]", "-")
 version = project.mod_version
 group = project.maven_group
 
-// The metadata writers are plain Java and shared by every profile. The two classes
-// that touch Minecraft itself exist twice: once against Yarn names (1.21.x and the
-// snapshot line) and once against the deobfuscated names used from 26 onwards.
+// The metadata writers are plain Java and shared by every profile (and by the
+// NeoForge, Babric and BTA builds). src/fabric holds the Fabric Loader glue. The two
+// classes that touch Minecraft itself exist twice: once against Yarn names (1.21.x
+// and the snapshot line) and once against the deobfuscated names used from 26 onwards.
 sourceSets {
 	main {
 		java {
-			srcDirs = ['src/main/java', isDeobfuscatedGame ? 'src/mojang/java' : 'src/yarn/java']
+			srcDirs = ['src/main/java', 'src/fabric/java'] + (isDeobfuscatedGame ? ['src/mojang/java', 'src/mojang26/java'] : ['src/yarn/java'])
+		}
+		resources {
+			srcDirs = ['src/main/resources', 'src/fabric/resources']
 		}
 	}
 }
@@ -178,6 +182,9 @@ publishMods {
 	changelog = changelogFile.exists() ? changelogFile.text : "No changelog provided"
 	type = publishTypeName == "beta" ? BETA : (publishTypeName == "alpha" ? ALPHA : STABLE)
 	modLoaders.add("fabric")
+	// Quilt Loader runs Fabric mods as-is (it reports itself as fabricloader 0.19.5,
+	// which meets every profile's minimum), so the same jar is listed for Quilt.
+	modLoaders.add("quilt")
 
 	curseforge {
 		projectId = project.curseforge_id

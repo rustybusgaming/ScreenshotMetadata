@@ -7,7 +7,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
-import net.fabricmc.loader.api.FabricLoader;
+import com.fentbuscoding.screenshotmetadata.platform.Platform;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -108,7 +108,7 @@ public class ScreenshotMetadataConfig {
     }
 
     private static Path getConfigPath() {
-        return FabricLoader.getInstance().getConfigDir().resolve(FILE_NAME);
+        return Platform.get().getConfigDir().resolve(FILE_NAME);
     }
 
     public MetadataProfile getMetadataProfile() {

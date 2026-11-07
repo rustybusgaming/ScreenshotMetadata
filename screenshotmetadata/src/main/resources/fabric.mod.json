@@ -12,7 +12,7 @@
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
-    "client": ["com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod"],
+    "client": ["com.fentbuscoding.screenshotmetadata.fabric.ScreenshotMetadataFabric"],
     "modmenu": ["com.fentbuscoding.screenshotmetadata.compat.ModMenuIntegration"]
   },
   "depends": {

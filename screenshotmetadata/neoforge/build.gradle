@@ -1,0 +1,135 @@
+plugins {
+	id 'java-library'
+	id 'net.neoforged.moddev' version '2.0.148'
+	id 'me.modmuss50.mod-publish-plugin' version '2.2.1'
+}
+
+def parentProperties = new Properties()
+file('../gradle.properties').withInputStream { parentProperties.load(it) }
+def modVersion = (findProperty('mod_version') ?: parentProperties.getProperty('mod_version')).toString()
+def archivesBaseName = parentProperties.getProperty('archives_base_name')
+
+def mcProfile = providers.gradleProperty('mcProfile')
+		.orElse(providers.gradleProperty('default_mc_profile'))
+		.get()
+def profileValue = { String key ->
+	def name = "${mcProfile}_${key}"
+	if (!project.hasProperty(name)) {
+		throw new GradleException("Unknown NeoForge mcProfile '${mcProfile}' (missing '${name}' in neoforge/gradle.properties)")
+	}
+	project.property(name).toString()
+}
+
+def minecraftVersion = profileValue('minecraft_version')
+def neoVersion = profileValue('neo_version')
+// Minecraft 26 runs on Java 25; 1.21.x on Java 21.
+def isMc26 = minecraftVersion.startsWith('26')
+def javaVersion = isMc26 ? 25 : 21
+
+version = modVersion
+group = parentProperties.getProperty('maven_group')
+
+base {
+	archivesName = "${archivesBaseName}-neoforge-mc${minecraftVersion}"
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(javaVersion)
+
+// The metadata writers and the config are the same code the Fabric builds use.
+// NeoForge runs on Mojang's names, so the screenshot mixin is the one in src/mojang
+// that Fabric uses on Minecraft 26; src/mojang26 or src/mojang121 supply the
+// version-specific bits (MinecraftCompat and the config screen). Only the ModMenu
+// glue is left out.
+def versionSources = isMc26 ? '../src/mojang26/java' : '../src/mojang121/java'
+sourceSets {
+	main {
+		java {
+			srcDirs = ['../src/main/java', '../src/mojang/java', versionSources, 'src/main/java']
+			exclude 'com/fentbuscoding/screenshotmetadata/compat/ModMenuIntegration.java'
+		}
+	}
+}
+
+neoForge {
+	version = neoVersion
+
+	runs {
+		client {
+			client()
+		}
+	}
+
+	mods {
+		screenshotmetadata {
+			sourceSet(sourceSets.main)
+		}
+	}
+}
+
+// Minecraft ranges in neoforge.mods.toml: exactly the version a jar was built for,
+// matching the per-version Fabric jars.
+def generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+	// Any NeoForge build of the line the jar was built against (21.1 for 1.21.1,
+	// 26.1.2 for 26.1.2, ...), not just the exact build used to compile it.
+	def neoParts = neoVersion.tokenize('.')
+	def neoLine = neoParts.take(isMc26 ? 3 : 2).join('.')
+	def props = [
+			mod_version            : modVersion,
+			minecraft_version_range: "[${minecraftVersion}]",
+			neo_version_range      : "[${neoLine},)",
+			java_version           : javaVersion
+	]
+	inputs.properties props
+	expand props
+	from 'src/main/templates'
+	into layout.buildDirectory.dir('generated/sources/modMetadata')
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+processResources {
+	// Only the shared assets: the parent's fabric.mod.json and mixin config are Fabric's.
+	from('../src/main/resources') {
+		include 'assets/**'
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+	options.release = javaVersion
+}
+
+jar {
+	def archName = base.archivesName.get()
+	inputs.property 'archivesName', archName
+	from('../LICENSE.MIT') {
+		rename { "${it}_${archName}" }
+	}
+}
+
+def changelogFile = file('../../CHANGELOG.md')
+
+publishMods {
+	displayName = "Screenshot Metadata v${modVersion} (NeoForge ${minecraftVersion})"
+	file = tasks.named('jar', AbstractArchiveTask).flatMap { it.archiveFile }
+	changelog = changelogFile.exists() ? changelogFile.text : 'No changelog provided'
+	// The mod itself is stable, but a jar built against a beta-only NeoForge line is
+	// marked beta so nobody mistakes the loader for a finished release.
+	type = neoVersion.contains('-beta') ? BETA : STABLE
+	modLoaders.add('neoforge')
+
+	curseforge {
+		projectId = parentProperties.getProperty('curseforge_id')
+		accessToken = providers.environmentVariable('CURSEFORGE_TOKEN')
+		minecraftVersions.add(minecraftVersion)
+		client = true
+		server = false
+	}
+
+	modrinth {
+		projectId = parentProperties.getProperty('modrinth_id')
+		accessToken = providers.environmentVariable('MODRINTH_TOKEN')
+		minecraftVersions.add(minecraftVersion)
+		environment = CLIENT_ONLY
+	}
+}
