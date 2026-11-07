@@ -14,6 +14,7 @@ on:
         options:
           - all
           - neoforge
+          - legacy
           - stable
           - beta
           - mc1_21_1
@@ -249,4 +250,49 @@ jobs:
       with:
         name: mod-jars-neoforge-${{ matrix.mc-profile }}
         path: screenshotmetadata/neoforge/build/libs/*.jar
+
+  # Babric (Beta 1.7.3) and Better than Adventure! go to Modrinth only; CurseForge
+  # has no category for either. Runs on tags and for the 'all' or 'legacy' choices
+  # of a manual run.
+  publish-legacy:
+    needs: check-secrets
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.profile == 'all' || github.event.inputs.profile == 'legacy'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - babric
+          - bta
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+
+    - name: Set up JDK
+      uses: actions/setup-java@v6
+      with:
+        java-version: 21
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x screenshotmetadata/gradlew
+
+    - name: Build and publish to Modrinth (${{ matrix.platform }})
+      run: |
+        EXTRA_VERSION_ARG=""
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+          EXTRA_VERSION_ARG="-Pmod_version=${{ github.event.inputs.version }}"
+        fi
+        cd screenshotmetadata
+        ./gradlew -p ${{ matrix.platform }} clean build publishMods $EXTRA_VERSION_ARG --no-configuration-cache
+      env:
+        MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: mod-jars-${{ matrix.platform }}
+        path: screenshotmetadata/${{ matrix.platform }}/build/libs/*.jar
 

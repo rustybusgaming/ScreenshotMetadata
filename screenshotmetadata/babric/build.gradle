@@ -1,6 +1,7 @@
 plugins {
 	id 'fabric-loom' version '1.17.21'
 	id 'babric-loom-extension' version '1.17.5'
+	id 'me.modmuss50.mod-publish-plugin' version '2.2.1'
 }
 
 def parentProperties = new Properties()
@@ -78,5 +79,25 @@ jar {
 	inputs.property 'archivesName', archName
 	from('../LICENSE.MIT') {
 		rename { "${it}_${archName}" }
+	}
+}
+
+def changelogFile = file('../../CHANGELOG.md')
+
+// Modrinth only: CurseForge has no Beta 1.7.3 / Babric category to upload into.
+publishMods {
+	displayName = "Screenshot Metadata v${project.version} (Babric b1.7.3)"
+	file = tasks.named('remapJar', AbstractArchiveTask).flatMap { it.archiveFile }
+	changelog = changelogFile.exists() ? changelogFile.text : 'No changelog provided'
+	type = STABLE
+	// Without a token (local builds) this only validates the upload; CI sets the token.
+	dryRun = providers.environmentVariable('MODRINTH_TOKEN').getOrNull() == null
+	modLoaders.add('babric')
+
+	modrinth {
+		projectId = parentProperties.getProperty('modrinth_id')
+		accessToken = providers.environmentVariable('MODRINTH_TOKEN')
+		minecraftVersions.add('b1.7.3')
+		environment = CLIENT_ONLY
 	}
 }
