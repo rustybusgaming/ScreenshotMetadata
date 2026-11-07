@@ -2,7 +2,7 @@
 
 All notable changes to the Screenshot Metadata Mod are documented here. This changelog focuses on functional changes to the mod itself.
 
-## [Unreleased]
+## [1.4.3] - 2026-11-07
 
 ### Added
 - Babric (Minecraft Beta 1.7.3) support: `screenshotmetadata-babric-b1.7.3-<version>.jar`,
@@ -20,7 +20,9 @@ All notable changes to the Screenshot Metadata Mod are documented here. This cha
   `screenshotmetadata-neoforge-mc<version>-<version>.jar`, built with
   `./gradlew -p neoforge build -PmcProfile=<profile>`. Records the same metadata as the
   Fabric jars, and NeoForge's mod list **Config** button opens the same settings screen
-  that ModMenu does. 1.21.2 is skipped (NeoForge never left its first beta there).
+  that ModMenu does. 1.21.2 is skipped (NeoForge never left its first beta there), and
+  the 1.21.6, 1.21.7, 1.21.9, 26.1 and 26.1.1 jars are marked beta because NeoForge
+  itself only has beta builds for those versions.
 - Quilt support: the Fabric jars run on Quilt Loader unchanged and are now published for
   Quilt as well. The metadata records which loader (Fabric, Quilt or NeoForge) took it.
 
@@ -29,30 +31,6 @@ All notable changes to the Screenshot Metadata Mod are documented here. This cha
   folder, mod list, version) go through a small `Platform` interface with Fabric and
   NeoForge implementations. The Fabric entrypoint class is now
   `com.fentbuscoding.screenshotmetadata.fabric.ScreenshotMetadataFabric`.
-
-## [1.3.3] - 2026-04-15
-
-### Added
-- Build and release support for Minecraft 1.21.1 through 1.21.10 with Fabric Loader 0.19.1 and ModMenu support:
-  - 1.21.1 — Fabric API 0.116.11, ModMenu 11.0.4
-  - 1.21.2 — Fabric API 0.106.1, ModMenu 12.0.1
-  - 1.21.3 — Fabric API 0.114.1, ModMenu 12.0.1
-  - 1.21.4 — Fabric API 0.119.4, ModMenu 13.0.4
-  - 1.21.5 — Fabric API 0.128.2, ModMenu 14.0.2
-  - 1.21.6 — Fabric API 0.128.2, ModMenu 15.0.2
-  - 1.21.7 — Fabric API 0.129.0, ModMenu 15.0.2
-  - 1.21.8 — Fabric API 0.136.1, ModMenu 15.0.2
-  - 1.21.9 — Fabric API 0.134.1, ModMenu 16.0.1
-  - 1.21.10 — Fabric API 0.138.4, ModMenu 16.0.1
-- Automatic publishing to Modrinth and CurseForge on release (all supported MC versions)
-- XMP sidecar files (`.xmp`) are written alongside each screenshot, embedding player name, world, coordinates, biome, weather, tags, and timestamp in an industry-standard format readable by Windows File Explorer and photo management tools
-
-### Fixed
-- Resolved intermittent HTTP 400 errors when resolving ModMenu from the TerraformersMC Maven repository by restricting Gradle to Maven POM metadata only (the server does not serve Gradle module metadata files)
-
-## [1.4.3] - 2026-11-07
-
-### Changed
 - The `beta` profile now tracks the live snapshot line instead of 25w46a. It was
   pinned to the last Yarn snapshot, which has not moved since Yarn stopped
   publishing, while the publish workflow separately resolved the Fabric API and the
@@ -74,6 +52,32 @@ All notable changes to the Screenshot Metadata Mod are documented here. This cha
 - Dropped the `beta`-only `fabric-key-binding-api-v1` dependency. That artifact does
   not exist for Minecraft 26, and the profile now takes the full Fabric API like
   every other target.
+
+### Fixed
+- PNG text metadata is no longer lost. With the default settings the embedded-XMP pass
+  re-encoded the screenshot from its pixels and dropped the text chunks written just
+  before it, so screenshots carried the XMP packet but none of the PNG text entries.
+  Both writers now keep the chunks already in the file and replace only their own.
+
+## [1.3.3] - 2026-04-15
+
+### Added
+- Build and release support for Minecraft 1.21.1 through 1.21.10 with Fabric Loader 0.19.1 and ModMenu support:
+  - 1.21.1 — Fabric API 0.116.11, ModMenu 11.0.4
+  - 1.21.2 — Fabric API 0.106.1, ModMenu 12.0.1
+  - 1.21.3 — Fabric API 0.114.1, ModMenu 12.0.1
+  - 1.21.4 — Fabric API 0.119.4, ModMenu 13.0.4
+  - 1.21.5 — Fabric API 0.128.2, ModMenu 14.0.2
+  - 1.21.6 — Fabric API 0.128.2, ModMenu 15.0.2
+  - 1.21.7 — Fabric API 0.129.0, ModMenu 15.0.2
+  - 1.21.8 — Fabric API 0.136.1, ModMenu 15.0.2
+  - 1.21.9 — Fabric API 0.134.1, ModMenu 16.0.1
+  - 1.21.10 — Fabric API 0.138.4, ModMenu 16.0.1
+- Automatic publishing to Modrinth and CurseForge on release (all supported MC versions)
+- XMP sidecar files (`.xmp`) are written alongside each screenshot, embedding player name, world, coordinates, biome, weather, tags, and timestamp in an industry-standard format readable by Windows File Explorer and photo management tools
+
+### Fixed
+- Resolved intermittent HTTP 400 errors when resolving ModMenu from the TerraformersMC Maven repository by restricting Gradle to Maven POM metadata only (the server does not serve Gradle module metadata files)
 
 ## [1.4.2] - 2026-10-04
 
