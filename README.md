@@ -131,7 +131,7 @@ cd screenshotmetadata
 | --- | --- | --- |
 | `stable` | 1.21.11 | 21 |
 | `mc1_21_1` ... `mc1_21_10` | 1.21.1 - 1.21.10 | 21 |
-| `beta` | 25w46a (26.1 snapshot line) | 25 |
+| `beta` | the current snapshot (Modrinth only) | 25 |
 | `mc26_1`, `mc26_1_1`, `mc26_1_2` | 26.1, 26.1.1, 26.1.2 | 25 |
 | `mc26_2`, `mc26_3` | 26.2, 26.3 | 25 |
 
@@ -156,14 +156,18 @@ src/main/java/com/fentbuscoding/screenshotmetadata/   (shared by every profile)
 - config/: Configuration management
 - metadata/: Metadata writers (PNG, XMP, JSON)
 
-src/yarn/java/...   (used by the 1.21.x and snapshot profiles)
-src/mojang/java/... (used by the Minecraft 26 profiles)
+src/yarn/java/...             (1.21.x profiles)
+- mixin/, compat/
+src/mojang/java/...           (all Minecraft 26 profiles)
 - mixin/: Minecraft interception hooks
+src/mojang_screen_26_3/java/  (26.1 - 26.3)
+src/mojang_screen_26_4/java/  (26.4 and the beta snapshot profile)
 - compat/: Mod compatibility (ModMenu integration)
 ```
-The two classes that touch Minecraft directly exist once per naming scheme, because
-Yarn and the deobfuscated 26 client name the same APIs differently. A change to
-either one usually needs the same change in the other.
+The classes that touch Minecraft directly exist once per naming scheme, because Yarn
+and the deobfuscated 26 client name the same APIs differently. The config screen is
+split once more because 26.4 changed Screen's render hooks. A change to any of these
+usually needs the same change in its siblings.
 
 ## License
 
