@@ -632,12 +632,45 @@ public class ScreenshotMetadataConfigScreen extends Screen {
         return Math.max(min, Math.min(value, max));
     }
 
+    /**
+     * 1.21.6 replaced GuiGraphics#renderTooltip(Font, List, int, int) with
+     * setTooltipForNextFrame, same parameters. Look up whichever this game has, so one
+     * class keeps covering 1.21.1-1.21.11.
+     */
+    private static java.lang.reflect.Method tooltipMethod;
+    private static boolean tooltipMethodResolved;
+
+    private void showTooltip(GuiGraphics context, List<net.minecraft.util.FormattedCharSequence> lines, int mouseX, int mouseY) {
+        if (!tooltipMethodResolved) {
+            tooltipMethodResolved = true;
+            for (String name : new String[]{"setTooltipForNextFrame", "renderTooltip"}) {
+                try {
+                    tooltipMethod = GuiGraphics.class.getMethod(name, net.minecraft.client.gui.Font.class, List.class, int.class, int.class);
+                    break;
+                } catch (NoSuchMethodException ignored) {
+                    // Try the other name.
+                }
+            }
+            if (tooltipMethod == null) {
+                ScreenshotMetadataMod.LOGGER.debug("No tooltip method found on GuiGraphics; tooltips disabled");
+            }
+        }
+        if (tooltipMethod == null) {
+            return;
+        }
+        try {
+            tooltipMethod.invoke(context, this.font, lines, mouseX, mouseY);
+        } catch (ReflectiveOperationException e) {
+            ScreenshotMetadataMod.LOGGER.debug("Could not draw tooltip", e);
+        }
+    }
+
     private void renderTooltipIfHovered(GuiGraphics context, int mouseX, int mouseY) {
         for (TooltipEntry entry : tooltipEntries) {
             if (entry.button.isMouseOver(mouseX, mouseY)) {
-                this.setTooltipForNextRenderPass(entry.lines.stream()
+                showTooltip(context, entry.lines.stream()
                     .map(net.minecraft.network.chat.Component::getVisualOrderText)
-                    .toList());
+                    .toList(), mouseX, mouseY);
                 return;
             }
         }
